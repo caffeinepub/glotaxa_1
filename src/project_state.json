@@ -1,0 +1,462 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 13,
+  "summary": "Multi-country VAT calculation and compliant invoice generation app (Glotaxa) supporting EU and UK regions with no signup required, featuring country selection leading to Transaction tab with VAT calculator and Invoice tab with EU/UK compliant format and VAT logic explanation",
+  "architectural_notes": [
+    "Landing page features: Multi currency Tax Rates, Country Specific Rules, Audit safe invoices, Reverse charge checker, AI Tax Explanation, Compliant formatting",
+    "Transaction tab contains VAT calculator, accessed after country selection",
+    "Invoice tab auto-populates from Transaction tab VAT calculator data",
+    "Invoice includes VAT logic explanation column",
+    "Landing page includes Login button (top-right placement)",
+    "Free tier allows 10 invoice downloads maximum",
+    "Invoice PDF generation uses jsPDF library",
+    "VAT calculation engine moved to engine/vatEngine.ts exporting VAT_CATEGORIES and calculateVAT function",
+    "VAT rules centralized in data/vatRules.ts with CountryCode type and VAT_RULES object for 11 countries",
+    "Transaction tab implements real-time VAT calculation with net amount input and category dropdown"
+  ],
+  "known_issues": [
+    "VAT Category dropdown in Transaction tab is being overshadowed by columns below, preventing user selection"
+  ],
+  "isFixRequest": true,
+  "existing_features": [
+    {
+      "id": "feature-create-a-landing-page-with-a-prominent-highlighted-tagline-displaying-calculate-tax-correctly-for-multiple-countries-on-the-first-line-and-generate-compliant-invoices-no-signup-required-on-the-second-line",
+      "title": "Create a landing page with a prominent highlighted tagline displaying 'Calculate Tax correctly for multiple countries' on the first line and 'Generate compliant invoices. No signup required.' on the second line",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-region-selection-section-below-the-tagline-showing-eu-region-germany-france-netherlands-poland-sweden-italy-belgium-austria-hungary-spain-and-uk-region-as-separate-selectable-areas",
+      "title": "Add region selection section below the tagline showing EU region (Germany, France, Netherlands, Poland, Sweden, Italy, Belgium, Austria, Hungary, Spain) and UK region as separate selectable areas",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-a-features-column-at-the-bottom-of-the-landing-page-listing-multi-currency-tax-rates-country-specific-rules-audit-safe-invoices-reverse-charge-checker-ai-tax-explanation-compliant-formatting",
+      "title": "Create a Features column at the bottom of the landing page listing: Multi currency Tax Rates, Country Specific Rules, Audit safe invoices, Reverse charge checker, AI Tax Explanation, Compliant formatting",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-frontend-src-config-vatconfig-ts-with-vattype-union-type-standard-reduced-zero-exempt-reverse-charge-productcategory-union-type-basic-food-books-medical-transport-hotel-financial-services-insurance-education-others-countryvatconfig-interface-and-vat-config-object-containing-configuration-for-gb-de-fr-nl-pl-se-it-be-at-hu-es-with-their-respective-standard-rates-reduced-rates-and-category-mappings-as-specified",
+      "title": "Create frontend/src/config/vatConfig.ts with VATType union type (STANDARD, REDUCED, ZERO, EXEMPT, REVERSE_CHARGE), ProductCategory union type (Basic Food, Books, Medical, Transport, Hotel, Financial Services, Insurance, Education, Others), CountryVATConfig interface, and VAT_CONFIG object containing configuration for GB, DE, FR, NL, PL, SE, IT, BE, AT, HU, ES with their respective standard rates, reduced rates, and category mappings as specified",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-frontend-src-utils-vatengine-ts-with-calculatevatrate-function-that-accepts-vatinput-sellercountry-buyercountry-vattype-category-and-returns-the-appropriate-vat-rate-based-on-reverse-charge-rules-zero-rated-categories-exempt-categories-reduced-categories-or-standard-rate-as-the-default",
+      "title": "Create frontend/src/utils/vatEngine.ts with calculateVATRate function that accepts VATInput (sellerCountry, buyerCountry, vatType, category) and returns the appropriate VAT rate based on reverse charge rules, zero-rated categories, exempt categories, reduced categories, or standard rate as the default",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-frontend-src-constants-vatcategories-ts-exporting-vat-types-array-containing-standard-reduced-zero-exempt-reverse-charge",
+      "title": "Create frontend/src/constants/vatCategories.ts exporting VAT_TYPES array containing STANDARD, REDUCED, ZERO, EXEMPT, REVERSE_CHARGE",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-frontend-src-constants-productcategories-ts-exporting-product-categories-array-containing-basic-food-books-medical-transport-hotel-financial-services-insurance-education-others",
+      "title": "Create frontend/src/constants/productCategories.ts exporting PRODUCT_CATEGORIES array containing Basic Food, Books, Medical, Transport, Hotel, Financial Services, Insurance, Education, Others",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-invoice-vat-calculation-logic-that-imports-calculatevatrate-from-vatengine-calls-it-with-sellercountry-buyercountry-vattype-and-category-calculates-vatamount-as-netamount-vatrate-100-and-computes-total-as-netamount-vatamount",
+      "title": "Implement invoice VAT calculation logic that imports calculateVATRate from vatEngine, calls it with sellerCountry, buyerCountry, vatType, and category, calculates vatAmount as (netAmount * vatRate) / 100, and computes total as netAmount + vatAmount",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-display-mandatory-compliance-message-reduced-vat-rates-apply-only-to-specific-goods-and-services-as-defined-under-national-vat-legislation-users-are-responsible-for-verifying-eligibility-before-applying-reduced-rates-if-unable-to-locate-the-category-select-others-below-or-near-the-vat-selection-interface",
+      "title": "Display mandatory compliance message 'Reduced VAT rates apply only to specific goods and services as defined under national VAT legislation. Users are responsible for verifying eligibility before applying reduced rates. If unable to locate the category select Others.' below or near the VAT selection interface",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-safe-country-selection-code-that-uses-optional-chaining-or-explicit-undefined-checks-instead-of-non-null-assertion-operators-when-finding-countries-from-arrays",
+      "title": "Implement safe country selection code that uses optional chaining or explicit undefined checks instead of non-null assertion operators (!) when finding countries from arrays",
+      "reqIds": [
+        "REQ-10"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-the-regionselector-component-with-a-navigation-mechanism-that-redirects-to-the-transaction-tab-after-a-country-is-selected-on-the-landing-page",
+      "title": "Replace the RegionSelector component with a navigation mechanism that redirects to the Transaction tab after a country is selected on the landing page",
+      "reqIds": [
+        "REQ-11"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-tabbed-interface-with-transaction-and-invoice-tabs-to-replace-the-current-single-page-layout",
+      "title": "Implement a tabbed interface with Transaction and Invoice tabs to replace the current single-page layout",
+      "reqIds": [
+        "REQ-12"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-move-the-invoicecalculator-component-to-the-transaction-tab",
+      "title": "Move the InvoiceCalculator component to the Transaction tab",
+      "reqIds": [
+        "REQ-13"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-an-invoice-tab-that-imports-all-data-from-the-vat-calculator-seller-country-buyer-country-vat-type-product-category-net-amount-vat-amount-total",
+      "title": "Create an Invoice tab that imports all data from the VAT Calculator (seller country, buyer country, VAT type, product category, net amount, VAT amount, total)",
+      "reqIds": [
+        "REQ-14"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-eu-and-uk-compliant-invoice-format-columns-to-the-invoice-tab-including-invoice-number-invoice-date-supplier-name-supplier-address-supplier-vat-registration-number-customer-name-customer-address-customer-vat-registration-number-description-of-goods-services-quantity-unit-price-net-amount-vat-rate-vat-amount-and-total-amount",
+      "title": "Add EU and UK compliant invoice format columns to the Invoice tab including invoice number, invoice date, supplier name, supplier address, supplier VAT registration number, customer name, customer address, customer VAT registration number, description of goods/services, quantity, unit price, net amount, VAT rate, VAT amount, and total amount",
+      "reqIds": [
+        "REQ-15"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-vat-rate-logic-explanation-column-at-the-end-of-the-invoice-that-displays-the-reasoning-for-the-applied-vat-rate-based-on-seller-country-buyer-country-vat-type-and-product-category",
+      "title": "Add a VAT rate logic explanation column at the end of the Invoice that displays the reasoning for the applied VAT rate based on seller country, buyer country, VAT type, and product category",
+      "reqIds": [
+        "REQ-16"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-restructure-the-app-routing-to-have-exactly-3-distinct-tabs-country-selection-first-tab-transaction-second-tab-and-invoice-third-tab",
+      "title": "Restructure the app routing to have exactly 3 distinct tabs: Country Selection (first tab), Transaction (second tab), and Invoice (third tab)",
+      "reqIds": [
+        "REQ-17"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-vat-calculation-engine-in-engine-vatengine-ts-that-exports-vat-categories-array-and-calculatevat-function-accepting-country-category-netamount-sellercountry-buyercountry-and-isb2b-parameters-returning-vatrate-vattype-vatamount-and-total",
+      "title": "Implement VAT calculation engine in engine/vatEngine.ts that exports VAT_CATEGORIES array and calculateVAT function accepting country, category, netAmount, sellerCountry, buyerCountry, and isB2B parameters, returning vatRate, vatType, vatAmount, and total",
+      "reqIds": [
+        "REQ-18"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-data-vatrules-ts-defining-countrycode-type-for-de-fr-nl-pl-se-it-be-at-hu-es-gb-and-vat-rules-object-with-each-country-s-name-standard-rate-reduced-rate-and-superreduced-rate-where-applicable",
+      "title": "Create data/vatRules.ts defining CountryCode type for DE, FR, NL, PL, SE, IT, BE, AT, HU, ES, GB and VAT_RULES object with each country's name, standard rate, reduced rate, and superReduced rate where applicable",
+      "reqIds": [
+        "REQ-19"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-pages-regionselect-tsx-to-display-eu-countries-de-fr-nl-pl-se-it-be-at-hu-es-in-one-section-and-gb-united-kingdom-in-a-separate-uk-section-with-buttons-that-call-selectcountry-callback",
+      "title": "Update pages/RegionSelect.tsx to display EU countries (DE, FR, NL, PL, SE, IT, BE, AT, HU, ES) in one section and GB (United Kingdom) in a separate UK section, with buttons that call selectCountry callback",
+      "reqIds": [
+        "REQ-20"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-pages-transaction-tsx-to-render-vat-calculator-with-net-amount-input-category-dropdown-using-vat-categories-real-time-display-of-vat-type-vat-rate-vat-amount-and-total-using-calculatevat-function-and-generate-invoice-button-that-calls-gotoinvoice-callback-with-result-amount-and-category",
+      "title": "Update pages/Transaction.tsx to render VAT calculator with net amount input, category dropdown using VAT_CATEGORIES, real-time display of VAT Type, VAT Rate, VAT Amount, and Total using calculateVAT function, and Generate Invoice button that calls goToInvoice callback with result, amount, and category",
+      "reqIds": [
+        "REQ-21"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-pages-invoice-tsx-to-display-invoice-header-country-category-net-amount-vat-type-vat-rate-vat-amount-total-vat-explanation-text-download-pdf-button-that-calls-downloadinvoicepdf-from-utils-invoicepdf-ts-and-enforce-10-invoice-free-limit-with-error-message-free-limit-reached-10-invoices",
+      "title": "Update pages/Invoice.tsx to display invoice header, country, category, net amount, VAT type, VAT rate, VAT amount, total, VAT explanation text, Download PDF button that calls downloadInvoicePDF from utils/invoicePDF.ts, and enforce 10 invoice free limit with error message 'Free limit reached (10 invoices)'",
+      "reqIds": [
+        "REQ-22"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-utils-invoicepdf-ts-that-exports-downloadinvoicepdf-function-using-jspdf-library-to-generate-pdf-with-invoice-data-including-country-category-net-amount-vat-type-vat-rate-vat-amount-and-total-then-triggers-download-as-invoice-pdf",
+      "title": "Create utils/invoicePDF.ts that exports downloadInvoicePDF function using jsPDF library to generate PDF with invoice data including country, category, net amount, VAT type, VAT rate, VAT amount, and total, then triggers download as 'invoice.pdf'",
+      "reqIds": [
+        "REQ-23"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-login-button-to-pages-landingpage-tsx-positioned-at-the-top-right-float-right-of-the-page",
+      "title": "Add Login button to pages/LandingPage.tsx positioned at the top-right (float: right) of the page",
+      "reqIds": [
+        "REQ-24"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-display-compliance-notice-below-vat-category-dropdown-in-transaction-tab-with-text-select-the-category-that-best-matches-your-goods-or-services-for-vat-calculation-reduced-vat-rates-apply-only-to-specific-goods-and-services-as-defined-under-national-vat-legislation-users-are-responsible-for-verifying-eligibility-before-applying-reduced-rates-if-unsure-select-others-to-apply-the-standard-vat-rate",
+      "title": "Display compliance notice below VAT category dropdown in Transaction tab with text: 'Select the category that best matches your goods or services for VAT calculation. Reduced VAT rates apply only to specific goods and services as defined under national VAT legislation. Users are responsible for verifying eligibility before applying reduced rates. If unsure, select \"Others\" to apply the standard VAT rate.'",
+      "reqIds": [
+        "REQ-25"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-restructure-frontend-source-directory-to-match-the-prescribed-structure-src-app-tsx-src-data-vatrules-ts-src-engine-vatengine-ts-src-pages-landingpage-tsx-src-pages-regionselect-tsx-src-pages-transaction-tsx-src-pages-invoice-tsx-src-utils-invoicepdf-ts",
+      "title": "Restructure frontend source directory to match the prescribed structure: src/App.tsx, src/data/vatRules.ts, src/engine/vatEngine.ts, src/pages/LandingPage.tsx, src/pages/RegionSelect.tsx, src/pages/Transaction.tsx, src/pages/Invoice.tsx, src/utils/invoicePDF.ts",
+      "reqIds": [
+        "REQ-26"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-src-pages-transaction-tsx-with-implementation-that-uses-usestate-for-amount-default-0-and-category-default-others-imports-vat-categories-and-calculatevat-from-engine-vatengine-calls-calculatevat-with-country-category-amount-country-country-false-parameters-renders-net-amount-number-input-category-select-dropdown-with-vat-categories-options-displays-vat-type-vat-rate-with-symbol-vat-amount-with-tofixed-2-total-with-tofixed-2-and-generate-invoice-button-that-calls-gotoinvoice-callback-with-result-amount-and-category",
+      "title": "Replace src/pages/Transaction.tsx with implementation that uses useState for amount (default 0) and category (default Others), imports VAT_CATEGORIES and calculateVAT from engine/vatEngine, calls calculateVAT with country, category, amount, country, country, false parameters, renders net amount number input, category select dropdown with VAT_CATEGORIES options, displays VAT Type, VAT Rate (with % symbol), VAT Amount (with toFixed(2)), Total (with toFixed(2)), and Generate Invoice button that calls goToInvoice callback with result, amount, and category",
+      "reqIds": [
+        "REQ-32"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-display-compliance-notice-below-the-vat-category-dropdown-in-transaction-page-with-text-select-the-category-that-best-matches-your-goods-or-services-for-vat-calculation-reduced-vat-rates-apply-only-to-specific-goods-and-services-as-defined-under-national-vat-legislation-users-are-responsible-for-verifying-eligibility-before-applying-reduced-rates-if-unsure-select-others-to-apply-the-standard-vat-rate",
+      "title": "Display compliance notice below the VAT category dropdown in Transaction page with text: 'Select the category that best matches your goods or services for VAT calculation. Reduced VAT rates apply only to specific goods and services as defined under national VAT legislation. Users are responsible for verifying eligibility before applying reduced rates. If unsure, select \"Others\" to apply the standard VAT rate.'",
+      "reqIds": [
+        "REQ-33"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-src-pages-invoice-tsx-with-implementation-that-uses-usestate-for-error-state-implements-download-function-checking-invoicecount-limit-max-10-calls-downloadinvoicepdf-from-utils-invoicepdf-with-data-displays-invoice-header-country-category-net-amount-vat-type-vat-rate-with-vat-amount-total-vat-explanation-text-vat-calculated-based-on-selected-category-and-country-rules-download-pdf-button-and-error-message-when-free-limit-is-reached",
+      "title": "Replace src/pages/Invoice.tsx with implementation that uses useState for error state, implements download function checking invoiceCount limit (max 10), calls downloadInvoicePDF from utils/invoicePDF with data, displays invoice header, country, category, net amount, VAT Type, VAT Rate with %, VAT Amount, Total, VAT Explanation text 'VAT calculated based on selected category and country rules.', Download PDF button, and error message when free limit is reached",
+      "reqIds": [
+        "REQ-34"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-src-utils-invoicepdf-ts-with-implementation-that-imports-jspdf-exports-downloadinvoicepdf-function-accepting-data-parameter-creates-new-jspdf-instance-adds-text-lines-for-glotaxa-invoice-title-country-category-net-amount-vat-type-vat-rate-with-vat-amount-total-at-specified-y-coordinates-20-40-50-60-70-80-90-100-and-saves-as-invoice-pdf",
+      "title": "Replace src/utils/invoicePDF.ts with implementation that imports jsPDF, exports downloadInvoicePDF function accepting data parameter, creates new jsPDF instance, adds text lines for Glotaxa Invoice title, Country, Category, Net Amount, VAT Type, VAT Rate with %, VAT Amount, Total at specified y-coordinates (20, 40, 50, 60, 70, 80, 90, 100), and saves as invoice.pdf",
+      "reqIds": [
+        "REQ-35"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-typescript-interfaces-in-frontend-src-types-invoice-ts-for-en-16931-compliant-invoice-data-structures-including-invoiceheader-invoicenumber-invoicedate-invoicetype-invoice-credit-note-sellerdetails-name-address-vatnumber-email-phone-buyerdetails-name-address-taxidorbusinessregnumber-publiccontractnumber-invoicelineitem-itemtype-description-quantity-unitprice-amount-vatrate-paymentterms-paymentduedate-paymentmeans-bankinginfo-with-iban-earlypaymentdiscount-latepenaltyterms-and-invoice16931-combining-all-sections-with-lineitems-array-taxdetails-object-mapping-line-items-to-vat-rates-subtotal-grandtotal-and-currency",
+      "title": "Create TypeScript interfaces in frontend/src/types/invoice.ts for EN 16931 compliant invoice data structures including InvoiceHeader (invoiceNumber, invoiceDate, invoiceType: 'Invoice' | 'Credit Note'), SellerDetails (name, address, vatNumber, email, phone), BuyerDetails (name, address, taxIdOrBusinessRegNumber, publicContractNumber), InvoiceLineItem (itemType, description, quantity, unitPrice, amount, vatRate), PaymentTerms (paymentDueDate, paymentMeans, bankingInfo with iban, earlyPaymentDiscount, latePenaltyTerms), and Invoice16931 combining all sections with lineItems array, taxDetails object mapping line items to VAT rates, subtotal, grandTotal, and currency",
+      "reqIds": [
+        "REQ-36"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-pages-invoice-tsx-to-display-comprehensive-en-16931-invoice-format-including-header-section-invoice-number-invoice-date-type-of-invoice-seller-details-section-seller-s-name-address-vat-number-email-phone-buyer-details-section-buyer-name-address-tax-id-or-business-registration-number-public-contract-number-invoice-line-items-table-item-type-description-quantity-unit-price-amount-vat-rate-tax-details-section-showing-vat-rates-for-each-line-item-and-totals-section-subtotal-net-amount-before-tax-grand-total-gross-amount-payable-currency",
+      "title": "Update frontend/src/pages/Invoice.tsx to display comprehensive EN 16931 invoice format including header section (Invoice Number, Invoice Date, Type of Invoice), seller details section (Seller's Name, Address, VAT Number, Email/Phone), buyer details section (Buyer Name, Address, Tax ID or Business Registration Number, Public Contract Number), invoice line items table (Item Type, Description, Quantity, Unit Price, Amount, VAT Rate), tax details section showing VAT rates for each line item, and totals section (Subtotal/Net Amount before Tax, Grand Total Gross Amount Payable, Currency)",
+      "reqIds": [
+        "REQ-37"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-editable-form-inputs-to-frontend-src-pages-invoice-tsx-for-all-en-16931-invoice-fields-header-fields-invoice-number-auto-generated-or-user-input-invoice-date-picker-invoice-type-dropdown-seller-details-inputs-name-multi-line-address-vat-number-email-phone-buyer-details-inputs-name-multi-line-address-tax-id-business-reg-number-public-contract-number-line-items-dynamic-form-with-add-remove-rows-item-type-description-quantity-unit-price-with-auto-calculated-amount-and-payment-terms-inputs-due-date-picker-payment-means-text-iban-early-payment-discount-late-penalty-terms",
+      "title": "Add editable form inputs to frontend/src/pages/Invoice.tsx for all EN 16931 invoice fields: header fields (invoice number auto-generated or user input, invoice date picker, invoice type dropdown), seller details inputs (name, multi-line address, VAT number, email, phone), buyer details inputs (name, multi-line address, tax ID/business reg number, public contract number), line items dynamic form with add/remove rows (item type, description, quantity, unit price with auto-calculated amount), and payment terms inputs (due date picker, payment means text, IBAN, early payment discount, late penalty terms)",
+      "reqIds": [
+        "REQ-38"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-automatic-calculation-logic-in-frontend-src-pages-invoice-tsx-that-computes-line-item-amounts-quantity-unit-price-applies-vat-rate-to-each-line-item-aggregates-subtotal-sum-of-all-line-item-amounts-before-tax-calculates-total-vat-amount-and-computes-grand-total-subtotal-total-vat",
+      "title": "Implement automatic calculation logic in frontend/src/pages/Invoice.tsx that computes line item amounts (quantity × unit price), applies VAT rate to each line item, aggregates subtotal (sum of all line item amounts before tax), calculates total VAT amount, and computes grand total (subtotal + total VAT)",
+      "reqIds": [
+        "REQ-39"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-frontend-src-utils-invoicexml-ts-that-exports-generateinvoicexml-function-accepting-invoice16931-data-and-returning-en-16931-compliant-xml-string-with-proper-ubl-2-1-structure-including-invoice-root-element-cbc-id-for-invoice-number-cbc-issuedate-cbc-invoicetypecode-accountingsupplierparty-with-seller-details-accountingcustomerparty-with-buyer-details-invoiceline-elements-for-each-line-item-with-item-price-taxtotal-elements-and-documenttotals-with-taxexclusiveamount-taxinclusiveamount-payableamount",
+      "title": "Create frontend/src/utils/invoiceXML.ts that exports generateInvoiceXML function accepting Invoice16931 data and returning EN 16931 compliant XML string with proper UBL 2.1 structure including Invoice root element, cbc:ID for invoice number, cbc:IssueDate, cbc:InvoiceTypeCode, AccountingSupplierParty with seller details, AccountingCustomerParty with buyer details, InvoiceLine elements for each line item with Item, Price, TaxTotal elements, and DocumentTotals with TaxExclusiveAmount, TaxInclusiveAmount, PayableAmount",
+      "reqIds": [
+        "REQ-40"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-downloadinvoicexml-function-in-frontend-src-utils-invoicexml-ts-that-calls-generateinvoicexml-with-invoice-data-creates-a-blob-with-type-application-xml-generates-object-url-creates-temporary-anchor-element-with-download-attribute-set-to-invoice-xml-triggers-click-event-to-download-and-cleans-up-object-url",
+      "title": "Create downloadInvoiceXML function in frontend/src/utils/invoiceXML.ts that calls generateInvoiceXML with invoice data, creates a Blob with type 'application/xml', generates object URL, creates temporary anchor element with download attribute set to 'invoice.xml', triggers click event to download, and cleans up object URL",
+      "reqIds": [
+        "REQ-41"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-utils-invoicepdf-ts-to-replace-existing-implementation-with-comprehensive-en-16931-pdf-generation-using-jspdf-library-that-includes-all-invoice-sections-header-invoice-number-date-type-seller-details-name-address-vat-email-phone-buyer-details-name-address-tax-id-contract-number-line-items-table-item-type-description-quantity-unit-price-amount-vat-rate-tax-summary-vat-breakdown-by-rate-totals-subtotal-grand-total-currency-and-payment-terms-due-date-payment-means-iban-discount-penalty-terms",
+      "title": "Update frontend/src/utils/invoicePDF.ts to replace existing implementation with comprehensive EN 16931 PDF generation using jsPDF library that includes all invoice sections: header (invoice number, date, type), seller details (name, address, VAT, email, phone), buyer details (name, address, tax ID, contract number), line items table (item type, description, quantity, unit price, amount, VAT rate), tax summary (VAT breakdown by rate), totals (subtotal, grand total, currency), and payment terms (due date, payment means, IBAN, discount/penalty terms)",
+      "reqIds": [
+        "REQ-42"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-download-xml-button-to-frontend-src-pages-invoice-tsx-that-calls-downloadinvoicexml-from-utils-invoicexml-ts-when-clicked-positioned-next-to-the-existing-download-pdf-button-and-ensures-the-10-invoice-free-limit-applies-to-both-xml-and-pdf-downloads-combined",
+      "title": "Add Download XML button to frontend/src/pages/Invoice.tsx that calls downloadInvoiceXML from utils/invoiceXML.ts when clicked, positioned next to the existing Download PDF button, and ensures the 10 invoice free limit applies to both XML and PDF downloads combined",
+      "reqIds": [
+        "REQ-43"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-pages-transaction-tsx-to-pass-line-items-array-structure-to-invoice-tab-when-generate-invoice-button-is-clicked-creating-initial-line-item-with-current-transaction-data-category-as-item-type-calculated-net-amount-vat-rate-vat-amount-to-populate-the-invoice-line-items-section",
+      "title": "Update frontend/src/pages/Transaction.tsx to pass line items array structure to Invoice tab when Generate Invoice button is clicked, creating initial line item with current transaction data (category as item type, calculated net amount, VAT rate, VAT amount) to populate the invoice line items section",
+      "reqIds": [
+        "REQ-44"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-apply-css-fix-to-frontend-src-pages-transaction-tsx-or-frontend-src-index-css-to-resolve-vat-category-dropdown-being-overshadowed-by-setting-overflow-visible-on-all-elements-z-index-9999-on-select-elements-z-index-99999-on-dropdown-menu-class-and-overflow-visible-on-tabs-tab-content-grid-column-and-card-classes",
+      "title": "Apply CSS fix to frontend/src/pages/Transaction.tsx or frontend/src/index.css to resolve VAT Category dropdown being overshadowed by setting overflow: visible on all elements, z-index: 9999 on select elements, z-index: 99999 on dropdown-menu class, and overflow: visible on tabs, tab-content, grid, column, and card classes",
+      "reqIds": [
+        "REQ-45"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-limit-vat-category-dropdown-visible-items-to-maximum-3-options-at-a-time-with-scrolling-enabled-for-remaining-options-in-frontend-src-pages-transaction-tsx",
+      "title": "Limit VAT Category dropdown visible items to maximum 3 options at a time with scrolling enabled for remaining options in frontend/src/pages/Transaction.tsx",
+      "reqIds": [
+        "REQ-46"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-2",
+      "summary": "Replace src/data/vatRules.ts with the prescribed implementation defining CountryCode type as union of DE, FR, NL, PL, SE, IT, BE, AT, HU, ES, GB and VAT_RULES object containing name, standard rate, reduced rate, and optional superReduced rate for each country as specified",
+      "reqIds": [
+        "REQ-27"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Replace src/engine/vatEngine.ts with the prescribed implementation exporting VAT_CATEGORIES array containing Basic Food, Books, Medical, Transport, Hotel, Financial Services, Insurance, Education, Exports, Intra-EU B2B, Others and calculateVAT function that accepts country, category, netAmount, sellerCountry, buyerCountry, isB2B parameters",
+      "reqIds": [
+        "REQ-28"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Implement calculateVAT function logic that returns UNKNOWN type with 0 rate when country rules are not found, implements Reverse Charge for B2B cross-border EU transactions (excluding GB), returns Exempt type with 0 rate for Financial Services, Insurance, and Education categories, returns Zero Rated type with 0 rate for GB country with Basic Food, Books, or Exports categories, returns Reduced type with reduced rate (or standard if reduced is unavailable) for Basic Food, Books, Medical, Transport, Hotel categories, and returns Standard type with standard rate as default",
+      "reqIds": [
+        "REQ-29"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Replace src/pages/LandingPage.tsx with implementation showing Glotaxa heading, tagline 'Calculate Tax correctly for multiple countries' and 'Generate compliant invoices. No signup required.', Get Started button that calls startApp callback, and Login button positioned with float: right style",
+      "reqIds": [
+        "REQ-30"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Replace src/pages/RegionSelect.tsx with implementation that imports VAT_RULES, defines euCountries array containing DE, FR, NL, PL, SE, IT, BE, AT, HU, ES, renders EU Region section with buttons for each EU country showing VAT_RULES country name, and renders UK section with button for GB (United Kingdom) that calls selectCountry callback",
+      "reqIds": [
+        "REQ-31"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-7",
+      "summary": "Expand Invoice tab to support EN 16931 (European electronic invoicing standard) format with comprehensive invoice details",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Add header section with Invoice Number, Invoice Date, and Type of Invoice (Invoice/Credit Note) fields to Invoice tab",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-9",
+      "summary": "Add seller details section with fields for Seller's Name, Address, VAT Number, Email/Phone to Invoice tab",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-10",
+      "summary": "Add buyer details section with fields for Buyer Name, Address, Tax ID or Business Registration Number, Public Contract Number to Invoice tab",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-11",
+      "summary": "Implement invoice line items section supporting multiple items with Item Type, Description, Quantity, Unit Price, and Amount fields",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-12",
+      "summary": "Add tax details section displaying VAT rate applied for each line item in the invoice",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-13",
+      "summary": "Add totals section displaying Subtotal (Net Amount before Tax), Grand Total Gross Amount Payable, and Currency applied",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-14",
+      "summary": "Add payment terms section with Payment Due Date, accepted payment means, banking information (IBAN), early payment discount terms, and late payment penalty terms",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-15",
+      "summary": "Implement XML download functionality for invoices in EN 16931 compliant format (in addition to existing PDF download)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-16",
+      "summary": "Update PDF download to include all EN 16931 invoice fields (header, seller, buyer, line items, tax details, totals, payment terms)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-17",
+      "summary": "Fix VAT Category dropdown z-index and overflow issues by either limiting visible items to 3 with scrolling or applying MASTER DROPDOWN FIX CSS (overflow visible, z-index 9999 for select/dropdown-menu, overflow visible for tabs/tab-content/grid/column/card)",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "projectName": "Glotaxa",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

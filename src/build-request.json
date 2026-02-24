@@ -1,0 +1,61 @@
+{
+  "kind": "build_request",
+  "title": "Fix VAT Category dropdown visibility and z-index issues",
+  "priority": "high",
+  "requirements": [
+    {
+      "id": "REQ-45",
+      "text": "Apply CSS fix to frontend/src/pages/Transaction.tsx or frontend/src/index.css to resolve VAT Category dropdown being overshadowed by setting overflow: visible on all elements, z-index: 9999 on select elements, z-index: 99999 on dropdown-menu class, and overflow: visible on tabs, tab-content, grid, column, and card classes",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-latest"
+        ],
+        "quotes": [
+          "Use this combined solution:\n\n/* MASTER DROPDOWN FIX */\n\n* {\n  overflow: visible !important;\n}\n\nselect {\n  position: relative;\n  z-index: 9999 !important;\n}\n\n.dropdown-menu {\n  z-index: 99999 !important;\n}\n\n.tabs,\n.tab-content,\n.grid,\n.column,\n.card {\n  overflow: visible !important;\n}"
+        ]
+      },
+      "acceptanceCriteria": [
+        "VAT Category dropdown in Transaction tab is fully visible and not overshadowed by elements below",
+        "Dropdown menu displays with proper z-index layering above all other content",
+        "All parent containers (tabs, tab-content, grid, column, card) have overflow: visible applied",
+        "Select element has position: relative and z-index: 9999",
+        "Dropdown menu has z-index: 99999"
+      ]
+    },
+    {
+      "id": "REQ-46",
+      "text": "Limit VAT Category dropdown visible items to maximum 3 options at a time with scrolling enabled for remaining options in frontend/src/pages/Transaction.tsx",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-latest"
+        ],
+        "quotes": [
+          "ensure only 3  VAT Category items are visible at any time and rest can be seen by scrolling down"
+        ]
+      },
+      "acceptanceCriteria": [
+        "VAT Category dropdown shows maximum 3 visible items when opened",
+        "Remaining category options are accessible via vertical scrolling within the dropdown",
+        "Dropdown height is constrained to display exactly 3 items",
+        "Scroll behavior is smooth and intuitive for users"
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not modify immutable paths: frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui",
+    "Maintain existing VAT calculation logic and functionality",
+    "Preserve all existing EN 16931 invoice features"
+  ],
+  "nonGoals": [
+    "Changing the VAT calculation engine logic",
+    "Modifying invoice generation functionality",
+    "Altering the three-tab navigation structure",
+    "Changing backend implementation"
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

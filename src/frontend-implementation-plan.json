@@ -1,0 +1,42 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Fix VAT Category dropdown visibility and z-index issues",
+  "requirements": [
+    {
+      "id": "REQ-45",
+      "summary": "Apply CSS fix to resolve VAT Category dropdown being overshadowed by implementing z-index hierarchy and overflow visibility for parent containers",
+      "acceptanceCriteria": [
+        "VAT Category dropdown in Transaction tab is fully visible and not overshadowed by elements below",
+        "Dropdown menu displays with proper z-index layering above all other content",
+        "All parent containers (tabs, tab-content, grid, column, card) have overflow: visible applied",
+        "Select element has position: relative and z-index: 9999",
+        "Dropdown menu has z-index: 99999"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/index.css",
+          "operation": "modify",
+          "description": "Add master dropdown fix CSS rules including universal overflow: visible, select element positioning with z-index: 9999, dropdown-menu z-index: 99999, and overflow: visible for tabs, tab-content, grid, column, and card classes to ensure VAT Category dropdown is fully visible and layered correctly above all other elements"
+        }
+      ]
+    },
+    {
+      "id": "REQ-46",
+      "summary": "Limit VAT Category dropdown visible items to maximum 3 options at a time with scrolling enabled for remaining options",
+      "acceptanceCriteria": [
+        "VAT Category dropdown shows maximum 3 visible items when opened",
+        "Remaining category options are accessible via vertical scrolling within the dropdown",
+        "Dropdown height is constrained to display exactly 3 items",
+        "Scroll behavior is smooth and intuitive for users"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Transaction.tsx",
+          "operation": "modify",
+          "description": "Add max-height constraint to VAT Category select element to display exactly 3 visible items with overflow-y: auto for scrolling through remaining options, ensuring smooth vertical scrolling behavior within the dropdown"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-apply-css-fix-to-frontend-src-pages-transaction-tsx-or-frontend-src-index-css-to-resolve-vat-category-dropdown-being-overshadowed-by-setting-overflow-visible-on-all-elements-z-index-9999-on-select-elements-z-index-99999-on-dropdown-menu-class-and-overflow-visible-on-tabs-tab-content-grid-column-and-card-classes",
+      "featureTitle": "Apply CSS fix to frontend/src/pages/Transaction.tsx or frontend/src/index.css to resolve VAT Category dropdown being overshadowed by setting overflow: visible on all elements, z-index: 9999 on select elements, z-index: 99999 on dropdown-menu class, and overflow: visible on tabs, tab-content, grid, column, and card classes",
+      "files": [
+        "frontend/src/index.css"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-45"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-limit-vat-category-dropdown-visible-items-to-maximum-3-options-at-a-time-with-scrolling-enabled-for-remaining-options-in-frontend-src-pages-transaction-tsx",
+      "featureTitle": "Limit VAT Category dropdown visible items to maximum 3 options at a time with scrolling enabled for remaining options in frontend/src/pages/Transaction.tsx",
+      "files": [
+        "frontend/src/pages/Transaction.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-46"
+      ],
+      "confidence": "high"
+    }
+  ]
+}
