@@ -1,0 +1,82 @@
+{
+  "kind": "build_request",
+  "title": "Transaction tab: 3-entry line items flowing to Invoice with VAT, remove item type dropdown",
+  "projectName": "Glotaxa VAT",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "text": "In the Transaction tab, under Transaction Details, add a 'Line Items' section that allows the user to enter up to 3 invoice line item entries. Each entry must have: a text field for a description/name, a numeric input for Net Amount, and a VAT Category selector (using the existing VAT_CATEGORIES list from the VAT engine). The section should display all three entry rows simultaneously (not behind an add button).",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "allow 3 entries to be added by the user for a single Invoice with the Net amount, VAT category"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Transaction Details section shows exactly 3 line item entry rows",
+        "Each row has a description text input, a net amount numeric input, and a VAT category selector",
+        "VAT Category selector is populated from the existing VAT_CATEGORIES list",
+        "All three rows are visible at once without requiring any 'add' action"
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "When the user proceeds from the Transaction tab to the Invoice tab, the up to 3 line item entries (description, net amount, VAT category) entered in the Transaction tab must be passed as invoice line items. In the Invoice tab Line Items section, each line item must display the description, net amount, VAT category name, and the resolved VAT rate (percentage) corresponding to the selected VAT category and the transaction's country context.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "Ensure the entries flow under Invoice tab, Line items along with the VAT Category and VAT Rate"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Line items entered in Transaction tab appear in the Invoice tab Line Items section",
+        "Each line item in Invoice tab shows: description, net amount, VAT category label, and resolved VAT rate percentage",
+        "VAT rate is automatically derived from the selected VAT category and the chosen country",
+        "Empty/unfilled line item rows (where net amount is blank or zero) are omitted from the Invoice line items",
+        "App.tsx passes the line item data from Transaction state into the Invoice page props"
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "In the Invoice tab, remove the dropdown selector for the Invoice Item type field on each line item row. Replace it with a plain read-only text display showing the item description carried over from the Transaction tab entries. If there is any other item type dropdown on the Invoice line items form, remove it entirely.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "Remove the option of drop down from the Invoice Item type"
+        ]
+      },
+      "acceptanceCriteria": [
+        "No dropdown selector appears for Invoice Item type in the Invoice tab line items section",
+        "Item description is displayed as static/read-only text derived from the Transaction tab entry",
+        "The Invoice tab line items section renders without any item type select/dropdown element"
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not alter the VAT calculation logic in frontend/src/engine/vatEngine.ts or frontend/src/utils/vatLogicExplainer.ts",
+    "Do not modify any files under frontend/src/hooks/ or frontend/src/components/ui/",
+    "VAT categories must be sourced from the existing VAT_CATEGORIES list already defined in the codebase",
+    "The Invoice must remain EN 16931 compliant — line items passed through must still produce valid PDF and XML output"
+  ],
+  "nonGoals": [
+    "Adding more than 3 line item entries per invoice",
+    "Dynamic add/remove of line item rows beyond the fixed 3",
+    "Changing the backend VAT rate registry or any Motoko actor logic",
+    "Modifying the compliance score calculator or risk detector",
+    "Changes to the Country or API Docs tabs"
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

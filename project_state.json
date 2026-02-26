@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 3,
+  "summary": "Financial app with Transaction and Invoice tabs. Users can add up to 3 line item entries per Invoice with Net amount and VAT category under Transaction details. These entries flow into the Invoice tab as Line Items with VAT Category and VAT Rate. Invoice Item type no longer uses a dropdown.",
+  "architectural_notes": [
+    "Transaction tab > Transaction Details supports up to 3 line item entries (Net amount + VAT category each)",
+    "Invoice tab > Line Items displays entries from Transaction Details including VAT Category and VAT Rate",
+    "Invoice Item type field is a plain input, not a dropdown"
+  ],
+  "known_issues": [],
+  "isFixRequest": false,
+  "existing_features": [
+    {
+      "id": "feature-in-the-transaction-tab-under-transaction-details-add-a-line-items-section-that-allows-the-user-to-enter-up-to-3-invoice-line-item-entries-each-entry-must-have-a-text-field-for-a-description-name-a-numeric-input-for-net-amount-and-a-vat-category-selector-using-the-existing-vat-categories-list-from-the-vat-engine-the-section-should-display-all-three-entry-rows-simultaneously-not-behind-an-add-button",
+      "title": "In the Transaction tab, under Transaction Details, add a 'Line Items' section that allows the user to enter up to 3 invoice line item entries. Each entry must have: a text field for a description/name, a numeric input for Net Amount, and a VAT Category selector (using the existing VAT_CATEGORIES list from the VAT engine). The section should display all three entry rows simultaneously (not behind an add button).",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-when-the-user-proceeds-from-the-transaction-tab-to-the-invoice-tab-the-up-to-3-line-item-entries-description-net-amount-vat-category-entered-in-the-transaction-tab-must-be-passed-as-invoice-line-items-in-the-invoice-tab-line-items-section-each-line-item-must-display-the-description-net-amount-vat-category-name-and-the-resolved-vat-rate-percentage-corresponding-to-the-selected-vat-category-and-the-transaction-s-country-context",
+      "title": "When the user proceeds from the Transaction tab to the Invoice tab, the up to 3 line item entries (description, net amount, VAT category) entered in the Transaction tab must be passed as invoice line items. In the Invoice tab Line Items section, each line item must display the description, net amount, VAT category name, and the resolved VAT rate (percentage) corresponding to the selected VAT category and the transaction's country context.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-invoice-tab-remove-the-dropdown-selector-for-the-invoice-item-type-field-on-each-line-item-row-replace-it-with-a-plain-read-only-text-display-showing-the-item-description-carried-over-from-the-transaction-tab-entries-if-there-is-any-other-item-type-dropdown-on-the-invoice-line-items-form-remove-it-entirely",
+      "title": "In the Invoice tab, remove the dropdown selector for the Invoice Item type field on each line item row. Replace it with a plain read-only text display showing the item description carried over from the Transaction tab entries. If there is any other item type dropdown on the Invoice line items form, remove it entirely.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Allow 3 line item entries per Invoice in Transaction tab with Net amount and VAT category",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Line items with VAT Category and VAT Rate flow into Invoice tab Line Items section",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Remove dropdown from Invoice Item type field",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "Glotaxa VAT",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

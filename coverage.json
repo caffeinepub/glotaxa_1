@@ -1,0 +1,63 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-26T08:40:08.674Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 3,
+    "implemented": 3,
+    "items": [
+      {
+        "id": "REQ-1",
+        "summary": "In the Transaction tab, under Transaction Details, add a 'Line Items' section that allows the user to enter up to 3 invoice line item entries. Each entry must have: a text field for a description/name, a numeric input for Net Amount, and a VAT Category selector (using the existing VAT_CATEGORIES list from the VAT engine). The section should display all three entry rows simultaneously (not behind an add button).",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/Transaction.tsx",
+          "frontend/src/App.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/Transaction.tsx",
+          "frontend/src/App.tsx"
+        ]
+      },
+      {
+        "id": "REQ-2",
+        "summary": "When the user proceeds from the Transaction tab to the Invoice tab, the up to 3 line item entries (description, net amount, VAT category) entered in the Transaction tab must be passed as invoice line items. In the Invoice tab Line Items section, each line item must display the description, net amount, VAT category name, and the resolved VAT rate (percentage) corresponding to the selected VAT category and the transaction's country context.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/Invoice.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/Invoice.tsx"
+        ]
+      },
+      {
+        "id": "REQ-3",
+        "summary": "In the Invoice tab, remove the dropdown selector for the Invoice Item type field on each line item row. Replace it with a plain read-only text display showing the item description carried over from the Transaction tab entries. If there is any other item type dropdown on the Invoice line items form, remove it entirely.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/Invoice.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/Invoice.tsx"
+        ]
+      }
+    ]
+  },
+  "changedFiles": [
+    "build-request.json",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/App.tsx",
+    "frontend/src/pages/Invoice.tsx",
+    "frontend/src/pages/Transaction.tsx",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}

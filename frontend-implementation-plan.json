@@ -1,0 +1,63 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Transaction tab: 3-entry line items flowing to Invoice with VAT, remove item type dropdown",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "summary": "Add a Line Items section in Transaction Details with 3 visible entry rows for description, net amount, and VAT category",
+      "acceptanceCriteria": [
+        "Transaction Details section shows exactly 3 line item entry rows",
+        "Each row has a description text input, a net amount numeric input, and a VAT category selector",
+        "VAT Category selector is populated from the existing VAT_CATEGORIES list",
+        "All three rows are visible at once without requiring any 'add' action"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Transaction.tsx",
+          "operation": "modify",
+          "description": "Add a Line Items section after the existing Transaction Details section with exactly 3 entry rows. Each row contains: a text input for description, a numeric input for net amount (with min=0 step=0.01), and a select dropdown populated from VAT_CATEGORIES imported from frontend/src/engine/vatEngine.ts. Store the line items in component state as an array of objects with {description: string, netAmount: number, vatCategory: string}. All three rows must be rendered simultaneously without conditional rendering."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Extend the state passed between Transaction and Invoice tabs to include line items data. Add a lineItems state variable as an array of {description: string, netAmount: number, vatCategory: string} objects. Pass setLineItems callback to the Transaction tab and pass lineItems array to the Invoice tab as props. Update the navigation flow to ensure line items flow from Transaction to Invoice."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Pass line item entries from Transaction tab to Invoice tab and display them with description, net amount, VAT category, and resolved VAT rate",
+      "acceptanceCriteria": [
+        "Line items entered in Transaction tab appear in the Invoice tab Line Items section",
+        "Each line item in Invoice tab shows: description, net amount, VAT category label, and resolved VAT rate percentage",
+        "VAT rate is automatically derived from the selected VAT category and the chosen country",
+        "Empty/unfilled line item rows (where net amount is blank or zero) are omitted from the Invoice line items",
+        "App.tsx passes the line item data from Transaction state into the Invoice page props"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Invoice.tsx",
+          "operation": "modify",
+          "description": "Accept lineItems array and selectedCountry as props from App.tsx. Filter out line items where netAmount is blank, zero, or undefined. For each valid line item, resolve the VAT rate by calling the existing calculateVAT function from frontend/src/engine/vatEngine.ts with the item's vatCategory and the selectedCountry context. Update the Line Items section UI to display each item's description as read-only text, net amount, VAT category label, and the resolved VAT rate percentage. Ensure the invoice's gross total and VAT breakdown calculations include all valid line items."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Remove the Invoice Item type dropdown from Invoice tab line items and display item description as read-only text",
+      "acceptanceCriteria": [
+        "No dropdown selector appears for Invoice Item type in the Invoice tab line items section",
+        "Item description is displayed as static/read-only text derived from the Transaction tab entry",
+        "The Invoice tab line items section renders without any item type select/dropdown element"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Invoice.tsx",
+          "operation": "modify",
+          "description": "Remove any select/dropdown element for Invoice Item type from the line items form. Replace it with a plain text display or span element showing the description passed from the Transaction tab. Ensure no item type dropdown remains in the line items rendering logic."
+        }
+      ]
+    }
+  ]
+}

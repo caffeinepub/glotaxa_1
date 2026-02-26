@@ -1,0 +1,60 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-in-the-transaction-tab-under-transaction-details-add-a-line-items-section-that-allows-the-user-to-enter-up-to-3-invoice-line-item-entries-each-entry-must-have-a-text-field-for-a-description-name-a-numeric-input-for-net-amount-and-a-vat-category-selector-using-the-existing-vat-categories-list-from-the-vat-engine-the-section-should-display-all-three-entry-rows-simultaneously-not-behind-an-add-button",
+      "featureTitle": "In the Transaction tab, under Transaction Details, add a 'Line Items' section that allows the user to enter up to 3 invoice line item entries. Each entry must have: a text field for a description/name, a numeric input for Net Amount, and a VAT Category selector (using the existing VAT_CATEGORIES list from the VAT engine). The section should display all three entry rows simultaneously (not behind an add button).",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/pages/Transaction.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-when-the-user-proceeds-from-the-transaction-tab-to-the-invoice-tab-the-up-to-3-line-item-entries-description-net-amount-vat-category-entered-in-the-transaction-tab-must-be-passed-as-invoice-line-items-in-the-invoice-tab-line-items-section-each-line-item-must-display-the-description-net-amount-vat-category-name-and-the-resolved-vat-rate-percentage-corresponding-to-the-selected-vat-category-and-the-transaction-s-country-context",
+      "featureTitle": "When the user proceeds from the Transaction tab to the Invoice tab, the up to 3 line item entries (description, net amount, VAT category) entered in the Transaction tab must be passed as invoice line items. In the Invoice tab Line Items section, each line item must display the description, net amount, VAT category name, and the resolved VAT rate (percentage) corresponding to the selected VAT category and the transaction's country context.",
+      "files": [
+        "frontend/src/pages/Invoice.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-in-the-invoice-tab-remove-the-dropdown-selector-for-the-invoice-item-type-field-on-each-line-item-row-replace-it-with-a-plain-read-only-text-display-showing-the-item-description-carried-over-from-the-transaction-tab-entries-if-there-is-any-other-item-type-dropdown-on-the-invoice-line-items-form-remove-it-entirely",
+      "featureTitle": "In the Invoice tab, remove the dropdown selector for the Invoice Item type field on each line item row. Replace it with a plain read-only text display showing the item description carried over from the Transaction tab entries. If there is any other item type dropdown on the Invoice line items form, remove it entirely.",
+      "files": [
+        "frontend/src/pages/Invoice.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
+      ],
+      "confidence": "high"
+    }
+  ]
+}
