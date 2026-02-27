@@ -1,12 +1,15 @@
 # Specification
 
 ## Summary
-**Goal:** Add a fixed 3-row line items section to the Transaction tab that flows description, net amount, VAT category, and resolved VAT rate into the Invoice tab, while removing the item type dropdown from Invoice line items.
+**Goal:** Add a "Generate Invoice" button on the Transaction tab that pre-populates and navigates to the Invoice tab, and add a "Back" button on each tab to allow navigation to the previous screen.
 
 **Planned changes:**
-- Add a "Line Items" section in the Transaction tab with exactly 3 always-visible rows, each containing a description text field, a net amount numeric input, and a VAT category selector populated from the existing `VAT_CATEGORIES` list
-- Pass the line item data (description, net amount, VAT category) from Transaction state into the Invoice tab, filtering out empty/zero-amount rows
-- Display each line item in the Invoice tab with description, net amount, VAT category label, and the resolved VAT rate percentage derived from the selected category and transaction country
-- Remove the item type dropdown from Invoice tab line items and replace it with a read-only text display of the description carried over from the Transaction tab
+- Add a "Generate Invoice" button in the VAT Calculation Summary column on the Transaction tab; when clicked, it transfers transaction data (country, VAT rate, VAT type, net/gross amounts, buyer type, category) into the Invoice tab form fields and switches to the Invoice tab.
+- Disable or show a tooltip on the "Generate Invoice" button if no VAT calculation has been performed yet.
+- Add a "Back" button on the Transaction tab (navigates to Country/RegionSelect tab).
+- Add a "Back" button on the Invoice tab (navigates to Transaction tab).
+- Add a "Back" button on the API Docs tab (navigates to Invoice tab).
+- Hide or disable the "Back" button on the Country/RegionSelect tab since it is the first screen.
+- All navigation uses the existing tab-switching mechanism in App.tsx and state sharing goes through existing shared state.
 
-**User-visible outcome:** Users can fill in up to 3 line items directly in the Transaction tab and see them automatically appear in the Invoice tab with VAT category and rate resolved — without any item type dropdown on the invoice.
+**User-visible outcome:** Users can click "Generate Invoice" on the Transaction tab to carry their VAT data directly into the Invoice form, and can use "Back" buttons across all tabs to return to the previous screen without losing entered data.

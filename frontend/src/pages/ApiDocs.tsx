@@ -1,261 +1,286 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Code, Globe, Key, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowLeft, Code, Globe, Key, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TabName } from '../App';
 
-const REQUEST_EXAMPLE = `{
-  "sellerCountry": "DE",
-  "buyerCountry": "FR",
-  "buyerType": "B2C",
-  "category": "Digital Services",
-  "amount": 100,
-  "apiKey": "your-api-key-here"
-}`;
-
-const RESPONSE_EXAMPLE = `{
-  "vatType": "OSS VAT",
-  "vatRate": 20,
-  "vatAmount": 20,
-  "total": 120
-}`;
-
-const REVERSE_CHARGE_EXAMPLE = `{
-  "sellerCountry": "DE",
-  "buyerCountry": "FR",
-  "buyerType": "B2B",
-  "category": "Others",
-  "amount": 500,
-  "apiKey": "your-api-key-here"
-}`;
-
-const REVERSE_CHARGE_RESPONSE = `{
-  "vatType": "Reverse Charge",
-  "vatRate": 0,
-  "vatAmount": 0,
-  "total": 500
-}`;
-
-const ERROR_RESPONSE = `{
-  "error": "Invalid API key"
-}`;
-
-function CodeBlock({ code }: { code: string }) {
-  return (
-    <pre className="bg-muted/60 border border-border rounded-lg p-4 text-xs font-mono overflow-x-auto whitespace-pre text-foreground">
-      {code}
-    </pre>
-  );
+interface ApiDocsProps {
+  setActiveTab: (tab: TabName) => void;
 }
 
-export function ApiDocs() {
+export default function ApiDocs({ setActiveTab }: ApiDocsProps) {
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="text-center">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-chart-2 mb-4">
-          <Code className="w-7 h-7 text-white" />
-        </div>
-        <h2 className="text-3xl font-bold mb-2">VAT Calculation API</h2>
-        <p className="text-muted-foreground max-w-xl mx-auto">
-          Integrate EU & UK VAT calculations directly into your website or application.
-          Supports OSS, Reverse Charge, and all major VAT categories.
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      {/* Back Button */}
+      <div className="mb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setActiveTab('invoice')}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Invoice
+        </Button>
+      </div>
+
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground mb-2">VAT Calculation API</h1>
+        <p className="text-muted-foreground">
+          Public REST API for programmatic VAT rate lookup and compliance checking.
         </p>
       </div>
 
-      {/* Feature highlights */}
-      <div className="grid sm:grid-cols-3 gap-4">
-        {[
-          { icon: Globe, title: "EU & UK Coverage", desc: "11 countries with accurate VAT rates" },
-          { icon: Zap, title: "OSS Support", desc: "Automatic cross-border B2C detection" },
-          { icon: ShieldCheck, title: "Reverse Charge", desc: "B2B cross-border zero-rating" },
-        ].map(({ icon: Icon, title, desc }) => (
-          <Card key={title} className="text-center">
-            <CardContent className="pt-6">
-              <Icon className="w-6 h-6 text-primary mx-auto mb-2" />
-              <p className="font-semibold text-sm">{title}</p>
-              <p className="text-xs text-muted-foreground mt-1">{desc}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       {/* Endpoint */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Badge className="text-xs px-2 py-0.5 bg-emerald-600 text-white">POST</Badge>
-            <code className="text-sm font-mono">/api/vat-calculate</code>
-          </CardTitle>
-          <CardDescription>
-            Calculate VAT for a transaction. Returns VAT type, rate, amount, and total.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Request Parameters */}
-          <div>
-            <h4 className="font-semibold text-sm mb-3">Request Parameters</h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2 pr-4 font-semibold text-muted-foreground">Parameter</th>
-                    <th className="text-left py-2 pr-4 font-semibold text-muted-foreground">Type</th>
-                    <th className="text-left py-2 pr-4 font-semibold text-muted-foreground">Required</th>
-                    <th className="text-left py-2 font-semibold text-muted-foreground">Description</th>
+      <section className="mb-8">
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Globe className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Endpoint</h2>
+          </div>
+          <div className="bg-muted rounded-lg p-4 font-mono text-sm">
+            <span className="text-green-600 dark:text-green-400 font-bold">POST</span>
+            <span className="ml-3 text-foreground">/api/v1/vat/calculate</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Request Parameters */}
+      <section className="mb-8">
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Code className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Request Parameters</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-4 text-xs font-semibold text-muted-foreground">Parameter</th>
+                  <th className="text-left py-2 pr-4 text-xs font-semibold text-muted-foreground">Type</th>
+                  <th className="text-left py-2 pr-4 text-xs font-semibold text-muted-foreground">Required</th>
+                  <th className="text-left py-2 text-xs font-semibold text-muted-foreground">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {[
+                  { param: 'sellerCountry', type: 'string', req: 'Yes', desc: 'ISO 3166-1 alpha-2 country code of the seller (e.g. DE, FR, GB)' },
+                  { param: 'buyerCountry', type: 'string', req: 'Yes', desc: 'ISO 3166-1 alpha-2 country code of the buyer' },
+                  { param: 'buyerType', type: 'string', req: 'Yes', desc: '"B2B" or "B2C"' },
+                  { param: 'productCategory', type: 'string', req: 'Yes', desc: 'Product/service category (see categories list below)' },
+                  { param: 'vatType', type: 'string', req: 'No', desc: 'Preferred VAT type: STANDARD, REDUCED, ZERO, EXEMPT, REVERSE_CHARGE' },
+                  { param: 'netAmount', type: 'number', req: 'Yes', desc: 'Net transaction amount in the specified currency' },
+                  { param: 'currency', type: 'string', req: 'No', desc: 'ISO 4217 currency code (default: EUR)' },
+                ].map((row) => (
+                  <tr key={row.param}>
+                    <td className="py-2 pr-4 font-mono text-xs text-primary">{row.param}</td>
+                    <td className="py-2 pr-4 text-xs text-muted-foreground">{row.type}</td>
+                    <td className="py-2 pr-4 text-xs">
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${row.req === 'Yes' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                        {row.req}
+                      </span>
+                    </td>
+                    <td className="py-2 text-xs text-foreground">{row.desc}</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {[
-                    { param: "sellerCountry", type: "string", req: "Yes", desc: "ISO country code of seller (DE, FR, GB, etc.)" },
-                    { param: "buyerCountry", type: "string", req: "Yes", desc: "ISO country code of buyer" },
-                    { param: "buyerType", type: "string", req: "Yes", desc: '"B2B" or "B2C"' },
-                    { param: "category", type: "string", req: "Yes", desc: "VAT category (e.g. Digital Services, Basic Food)" },
-                    { param: "amount", type: "number", req: "Yes", desc: "Net amount before VAT" },
-                    { param: "apiKey", type: "string", req: "Yes", desc: "Your API key for authentication" },
-                  ].map(({ param, type, req, desc }) => (
-                    <tr key={param}>
-                      <td className="py-2 pr-4"><code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{param}</code></td>
-                      <td className="py-2 pr-4 text-muted-foreground text-xs">{type}</td>
-                      <td className="py-2 pr-4">
-                        <Badge variant={req === "Yes" ? "default" : "secondary"} className="text-xs">{req}</Badge>
-                      </td>
-                      <td className="py-2 text-xs text-muted-foreground">{desc}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Response Parameters */}
+      <section className="mb-8">
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Code className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Response</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-4 text-xs font-semibold text-muted-foreground">Field</th>
+                  <th className="text-left py-2 pr-4 text-xs font-semibold text-muted-foreground">Type</th>
+                  <th className="text-left py-2 text-xs font-semibold text-muted-foreground">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {[
+                  { field: 'vatRate', type: 'number', desc: 'Applicable VAT rate as a percentage (e.g. 20)' },
+                  { field: 'vatAmount', type: 'number', desc: 'Calculated VAT amount' },
+                  { field: 'grossAmount', type: 'number', desc: 'Total gross amount (net + VAT)' },
+                  { field: 'vatCategory', type: 'string', desc: 'Applied VAT category (STANDARD, REDUCED, etc.)' },
+                  { field: 'isOSS', type: 'boolean', desc: 'Whether OSS (One Stop Shop) registration is required' },
+                  { field: 'effectiveVatType', type: 'string', desc: 'The effective VAT type applied after rule evaluation' },
+                  { field: 'complianceNotes', type: 'string[]', desc: 'Array of compliance warnings or notes' },
+                ].map((row) => (
+                  <tr key={row.field}>
+                    <td className="py-2 pr-4 font-mono text-xs text-primary">{row.field}</td>
+                    <td className="py-2 pr-4 text-xs text-muted-foreground">{row.type}</td>
+                    <td className="py-2 text-xs text-foreground">{row.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Examples */}
+      <section className="mb-8">
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Code className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Examples</h2>
+          </div>
+
+          <div className="space-y-6">
+            {/* Example 1 */}
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-2">Example 1: OSS B2C Cross-border</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Request</p>
+                  <pre className="bg-muted rounded-lg p-4 text-xs font-mono overflow-x-auto text-foreground">{`{
+  "sellerCountry": "DE",
+  "buyerCountry": "FR",
+  "buyerType": "B2C",
+  "productCategory": "Digital Services",
+  "vatType": "STANDARD",
+  "netAmount": 100,
+  "currency": "EUR"
+}`}</pre>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Response</p>
+                  <pre className="bg-muted rounded-lg p-4 text-xs font-mono overflow-x-auto text-foreground">{`{
+  "vatRate": 20,
+  "vatAmount": 20.00,
+  "grossAmount": 120.00,
+  "vatCategory": "STANDARD",
+  "isOSS": true,
+  "effectiveVatType": "STANDARD",
+  "complianceNotes": [
+    "OSS registration required"
+  ]
+}`}</pre>
+                </div>
+              </div>
+            </div>
+
+            {/* Example 2 */}
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-2">Example 2: Reverse Charge B2B</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Request</p>
+                  <pre className="bg-muted rounded-lg p-4 text-xs font-mono overflow-x-auto text-foreground">{`{
+  "sellerCountry": "GB",
+  "buyerCountry": "DE",
+  "buyerType": "B2B",
+  "productCategory": "Financial Services",
+  "vatType": "REVERSE_CHARGE",
+  "netAmount": 5000,
+  "currency": "GBP"
+}`}</pre>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Response</p>
+                  <pre className="bg-muted rounded-lg p-4 text-xs font-mono overflow-x-auto text-foreground">{`{
+  "vatRate": 0,
+  "vatAmount": 0.00,
+  "grossAmount": 5000.00,
+  "vatCategory": "REVERSE_CHARGE",
+  "isOSS": false,
+  "effectiveVatType": "REVERSE_CHARGE",
+  "complianceNotes": [
+    "Reverse charge applies",
+    "Include Article 196 reference"
+  ]
+}`}</pre>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          <Separator />
-
-          {/* Example 1: OSS */}
-          <div>
-            <h4 className="font-semibold text-sm mb-1">Example 1 — OSS B2C Transaction</h4>
-            <p className="text-xs text-muted-foreground mb-3">
-              German seller → French consumer. OSS applies; buyer country rate (20%) is used.
-            </p>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">Request</p>
-                <CodeBlock code={REQUEST_EXAMPLE} />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">Response</p>
-                <CodeBlock code={RESPONSE_EXAMPLE} />
-              </div>
-            </div>
+      {/* Error Responses */}
+      <section className="mb-8">
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <AlertCircle className="w-5 h-5 text-destructive" />
+            <h2 className="text-lg font-semibold text-foreground">Error Responses</h2>
           </div>
-
-          <Separator />
-
-          {/* Example 2: Reverse Charge */}
-          <div>
-            <h4 className="font-semibold text-sm mb-1">Example 2 — Reverse Charge B2B</h4>
-            <p className="text-xs text-muted-foreground mb-3">
-              German seller → French business. Reverse charge applies; 0% VAT on invoice.
-            </p>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">Request</p>
-                <CodeBlock code={REVERSE_CHARGE_EXAMPLE} />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">Response</p>
-                <CodeBlock code={REVERSE_CHARGE_RESPONSE} />
-              </div>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-4 text-xs font-semibold text-muted-foreground">Code</th>
+                  <th className="text-left py-2 text-xs font-semibold text-muted-foreground">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {[
+                  { code: '400', desc: 'Bad Request — missing or invalid parameters' },
+                  { code: '401', desc: 'Unauthorized — invalid or missing API key' },
+                  { code: '404', desc: 'Not Found — unsupported country code' },
+                  { code: '429', desc: 'Too Many Requests — rate limit exceeded' },
+                  { code: '500', desc: 'Internal Server Error' },
+                ].map((row) => (
+                  <tr key={row.code}>
+                    <td className="py-2 pr-4 font-mono text-xs text-destructive font-semibold">{row.code}</td>
+                    <td className="py-2 text-xs text-foreground">{row.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-
-          <Separator />
-
-          {/* Error Response */}
-          <div>
-            <h4 className="font-semibold text-sm mb-1">Error Response — Invalid API Key</h4>
-            <p className="text-xs text-muted-foreground mb-3">
-              Returned with HTTP 403 when the API key is missing or invalid.
-            </p>
-            <CodeBlock code={ERROR_RESPONSE} />
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* Supported Countries */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Supported Countries</CardTitle>
-          <CardDescription>ISO codes accepted for sellerCountry and buyerCountry</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
+      <section className="mb-8">
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Globe className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Supported Countries</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {[
-              { code: "DE", name: "Germany", rate: "19%" },
-              { code: "FR", name: "France", rate: "20%" },
-              { code: "NL", name: "Netherlands", rate: "21%" },
-              { code: "PL", name: "Poland", rate: "23%" },
-              { code: "SE", name: "Sweden", rate: "25%" },
-              { code: "IT", name: "Italy", rate: "22%" },
-              { code: "BE", name: "Belgium", rate: "21%" },
-              { code: "AT", name: "Austria", rate: "20%" },
-              { code: "HU", name: "Hungary", rate: "27%" },
-              { code: "ES", name: "Spain", rate: "21%" },
-              { code: "GB", name: "United Kingdom", rate: "20%" },
-            ].map(({ code, name, rate }) => (
-              <div key={code} className="flex items-center gap-1.5 bg-muted/50 border border-border rounded-md px-3 py-1.5">
-                <code className="text-xs font-mono font-bold text-primary">{code}</code>
-                <span className="text-xs text-muted-foreground">{name}</span>
-                <Badge variant="outline" className="text-xs px-1.5 py-0">{rate}</Badge>
+              { code: 'DE', name: 'Germany' }, { code: 'FR', name: 'France' },
+              { code: 'NL', name: 'Netherlands' }, { code: 'PL', name: 'Poland' },
+              { code: 'SE', name: 'Sweden' }, { code: 'IT', name: 'Italy' },
+              { code: 'BE', name: 'Belgium' }, { code: 'AT', name: 'Austria' },
+              { code: 'HU', name: 'Hungary' }, { code: 'ES', name: 'Spain' },
+              { code: 'GB', name: 'United Kingdom' },
+            ].map((c) => (
+              <div key={c.code} className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                <span className="font-mono text-xs font-bold text-primary">{c.code}</span>
+                <span className="text-xs text-foreground">{c.name}</span>
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* VAT Categories */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Supported VAT Categories</CardTitle>
-          <CardDescription>Valid values for the category parameter</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {[
-              "Basic Food", "Books", "Medical", "Transport", "Hotel",
-              "Financial Services", "Insurance", "Education",
-              "Exports", "Intra-EU B2B", "Others"
-            ].map((cat) => (
-              <Badge key={cat} variant="secondary" className="text-xs">{cat}</Badge>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* API Access */}
-      <Card className="border-primary/30 bg-primary/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Key className="w-4 h-4 text-primary" />
-            Get API Access
-          </CardTitle>
-          <CardDescription>
-            API keys are managed by the platform administrator via the Glotaxa backend.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            To request API access, contact the Glotaxa administrator. API keys are validated
-            on-chain via the Internet Computer canister, ensuring tamper-proof key management.
+      <section className="mb-8">
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Key className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">API Access</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-3">
+            Include your API key in the request header:
           </p>
-          <div className="bg-muted/60 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-            <p className="font-semibold text-foreground mb-1">OSS Logic</p>
-            <p>When sellerCountry ≠ buyerCountry AND buyerType = "B2C" AND both are EU countries → OSS VAT applies using buyer country rate.</p>
-          </div>
-          <div className="bg-muted/60 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-            <p className="font-semibold text-foreground mb-1">Reverse Charge Logic</p>
-            <p>When sellerCountry ≠ buyerCountry AND buyerType = "B2B" AND both are EU countries → Reverse Charge applies, vatRate = 0%.</p>
-          </div>
-        </CardContent>
-      </Card>
+          <pre className="bg-muted rounded-lg p-4 text-xs font-mono text-foreground">
+            {`Authorization: Bearer YOUR_API_KEY`}
+          </pre>
+          <p className="text-xs text-muted-foreground mt-3">
+            Contact us to obtain an API key for production use.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }
