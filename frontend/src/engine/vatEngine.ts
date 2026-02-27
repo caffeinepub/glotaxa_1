@@ -21,6 +21,7 @@ export interface VATCalculationResult {
   total: number;
   isOSS: boolean;
   vatCategory: "standard" | "reduced" | "zero" | "exempt" | "reverse_charge" | "oss";
+  note?: string;
 }
 
 // EU country codes (excluding GB)
@@ -53,7 +54,8 @@ export function calculateVAT(
   netAmount: number,
   sellerCountry: CountryCode,
   buyerCountry: CountryCode,
-  isB2B: boolean
+  isB2B: boolean,
+  isPublicTransport?: boolean
 ): VATCalculationResult {
   const buyerType: "B2B" | "B2C" = isB2B ? "B2B" : "B2C";
 
@@ -88,8 +90,82 @@ export function calculateVAT(
     };
   }
 
+  // ── UK (GB) specific logic ──────────────────────────────────────────────────
+  if (country === "GB") {
+    const categoryRates = rules.categoryRates;
+
+    // Intra-EU B2B from UK: reverse charge
+    if (category === "Intra-EU B2B") {
+      const catRule = categoryRates?.["Intra-EU B2B"];
+      return {
+        vatRate: 0,
+        vatType: "Reverse Charge",
+        vatAmount: 0,
+        total: netAmount,
+        isOSS: false,
+        vatCategory: "reverse_charge",
+        note: catRule?.note,
+      };
+    }
+
+    // Transport: public transport = 0%, default = 20%
+    if (category === "Transport") {
+      const catRule = categoryRates?.["Transport"];
+      if (isPublicTransport) {
+        return {
+          vatRate: 0,
+          vatType: "Zero Rated",
+          vatAmount: 0,
+          total: netAmount,
+          isOSS: false,
+          vatCategory: "zero",
+          note: "Public transport (bus/train) is zero-rated for VAT in the UK.",
+        };
+      }
+      // Default: 20% (taxis/car hire)
+      const vatAmount = (netAmount * 20) / 100;
+      return {
+        vatRate: 20,
+        vatType: "Standard",
+        vatAmount,
+        total: netAmount + vatAmount,
+        isOSS: false,
+        vatCategory: "standard",
+        note: catRule?.note,
+      };
+    }
+
+    // Check category-specific UK rates
+    if (categoryRates && category in categoryRates) {
+      const catRule = categoryRates[category];
+      const vatAmount = (netAmount * catRule.rate) / 100;
+      return {
+        vatRate: catRule.rate,
+        vatType: catRule.vatType,
+        vatAmount,
+        total: netAmount + vatAmount,
+        isOSS: false,
+        vatCategory: catRule.vatCategory,
+        note: catRule.note,
+      };
+    }
+
+    // All other UK categories: standard 20%
+    const vatAmount = (netAmount * rules.standard) / 100;
+    return {
+      vatRate: rules.standard,
+      vatType: "Standard",
+      vatAmount,
+      total: netAmount + vatAmount,
+      isOSS: false,
+      vatCategory: "standard",
+    };
+  }
+  // ── End UK logic ────────────────────────────────────────────────────────────
+
   // Reverse Charge EU (B2B transactions between different EU countries)
-  if (isB2B && sellerCountry !== buyerCountry && country !== "GB") {
+  // Note: country !== "GB" check is redundant here as GB is handled above with early returns
+  if (isB2B && sellerCountry !== buyerCountry) {
     return {
       vatRate: 0,
       vatType: "Reverse Charge",
@@ -100,7 +176,7 @@ export function calculateVAT(
     };
   }
 
-  // Exempt categories
+  // Exempt categories (non-UK)
   if (
     category === "Financial Services" ||
     category === "Insurance" ||
@@ -116,11 +192,8 @@ export function calculateVAT(
     };
   }
 
-  // Zero rated UK
-  if (
-    country === "GB" &&
-    (category === "Basic Food" || category === "Books" || category === "Exports")
-  ) {
+  // Zero rated non-UK
+  if (category === "Exports") {
     return {
       vatRate: 0,
       vatType: "Zero Rated",
@@ -131,7 +204,7 @@ export function calculateVAT(
     };
   }
 
-  // Reduced rate categories
+  // Reduced rate categories (non-UK)
   if (
     ["Basic Food", "Books", "Medical", "Transport", "Hotel"].includes(category)
   ) {

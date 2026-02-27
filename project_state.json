@@ -1,27 +1,16 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "A multi-tab app (likely a VAT/Invoice management tool) where users can enter transactions, calculate VAT, and generate invoices. Key navigation includes back buttons on all tabs and a Generate Invoice button on the VAT Calculation Summary column that flows transaction data into the Invoice tab.",
-  "architectural_notes": [
-    "Transaction tab data should flow into the Invoice tab when Generate Invoice is triggered",
-    "All tabs require a Back button for navigation to previous screens"
-  ],
+  "summary": "App with an Invoice tab that supports multiple countries and VAT categories. Line items are limited to 3 per invoice across all countries.",
+  "architectural_notes": [],
   "known_issues": [],
   "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-add-a-generate-invoice-button-in-the-vat-calculation-summary-column-on-the-transaction-tab-when-clicked-it-should-pre-populate-the-invoice-tab-with-data-from-the-current-transaction-country-vat-rate-vat-type-net-amount-gross-amount-buyer-type-and-category-then-navigate-the-user-to-the-invoice-tab",
-      "title": "Add a 'Generate Invoice' button in the VAT Calculation Summary column on the Transaction tab. When clicked, it should pre-populate the Invoice tab with data from the current transaction (country, VAT rate, VAT type, net amount, gross amount, buyer type, and category), then navigate the user to the Invoice tab.",
+      "id": "feature-in-the-invoice-tab-frontend-src-pages-invoice-tsx-enforce-a-maximum-of-3-line-items-per-invoice-for-all-countries-when-the-invoice-already-has-3-line-items-the-add-line-item-button-or-equivalent-control-must-be-disabled-or-hidden-to-prevent-adding-a-fourth-item",
+      "title": "In the Invoice tab (frontend/src/pages/Invoice.tsx), enforce a maximum of 3 line items per invoice for all countries. When the invoice already has 3 line items, the 'Add Line Item' button (or equivalent control) must be disabled or hidden to prevent adding a fourth item.",
       "reqIds": [
         "REQ-1"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-add-a-back-button-on-each-tab-regionselect-country-transaction-invoice-api-docs-that-navigates-the-user-to-the-previous-screen-allowing-them-to-make-changes-the-back-button-on-the-first-screen-country-regionselect-should-be-hidden-or-disabled-since-there-is-no-prior-screen",
-      "title": "Add a 'Back' button on each tab (RegionSelect/Country, Transaction, Invoice, API Docs) that navigates the user to the previous screen, allowing them to make changes. The back button on the first screen (Country/RegionSelect) should be hidden or disabled since there is no prior screen.",
-      "reqIds": [
-        "REQ-2"
       ],
       "version": 1
     }
@@ -29,19 +18,13 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Add a Generate Invoice button on the VAT Calculation Summary column that flows transaction tab data into the Invoice tab",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-2",
-      "summary": "Add a Back button on all tabs so users can navigate to previous screens to make changes",
+      "summary": "Limit invoice line items to a maximum of 3 per invoice for all countries in the Invoice tab",
       "reqIds": [],
       "status": "pending"
     }
   ],
   "gameProjectType": "none",
-  "projectName": "Glotaxa VAT",
+  "projectName": "Glotaxa",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

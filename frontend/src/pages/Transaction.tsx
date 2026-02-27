@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, FileText, AlertTriangle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TabName, InvoicePrePopData } from '../App';
@@ -9,6 +9,7 @@ import { explainVATDecision } from '../utils/vatLogicExplainer';
 import { CompliancePanel } from '../components/CompliancePanel';
 import { calculateComplianceScore } from '../utils/complianceScoreCalculator';
 import { riskDetector } from '../utils/riskDetector';
+import { TransportVatModal } from '../components/TransportVatModal';
 
 interface TransactionProps {
   selectedCountry: string;
@@ -31,10 +32,33 @@ export default function Transaction({ selectedCountry, setActiveTab, onGenerateI
   const [reverseChargeNote, setReverseChargeNote] = useState(false);
   const [calculationResult, setCalculationResult] = useState<ReturnType<typeof calculateVAT> | null>(null);
   const [hasCalculated, setHasCalculated] = useState(false);
+  const [showTransportModal, setShowTransportModal] = useState(false);
+  const [isPublicTransport, setIsPublicTransport] = useState(false);
 
   const supplierCountry = (selectedCountry as CountryCode) || 'DE';
   const countryRule = VAT_RULES[supplierCountry];
   const countryName = countryRule?.name || selectedCountry;
+
+  // Show Transport modal when UK + Transport is selected
+  useEffect(() => {
+    if (supplierCountry === 'GB' && category === 'Transport') {
+      setShowTransportModal(true);
+    }
+  }, [category, supplierCountry]);
+
+  // Reset public transport flag when category changes away from Transport
+  useEffect(() => {
+    if (category !== 'Transport') {
+      setIsPublicTransport(false);
+    }
+  }, [category]);
+
+  const handleCategorySelect = (cat: string) => {
+    setCategory(cat);
+    // Reset calculation when category changes
+    setCalculationResult(null);
+    setHasCalculated(false);
+  };
 
   const handleCalculate = () => {
     try {
@@ -44,7 +68,8 @@ export default function Transaction({ selectedCountry, setActiveTab, onGenerateI
         netAmount,
         supplierCountry,
         buyerCountry,
-        buyerType === 'B2B'
+        buyerType === 'B2B',
+        isPublicTransport
       );
       setCalculationResult(result);
       setHasCalculated(true);
@@ -91,6 +116,7 @@ export default function Transaction({ selectedCountry, setActiveTab, onGenerateI
           isOSS: calculationResult.isOSS,
           complianceScore: complianceResult.score,
           risks,
+          note: calculationResult.note,
         })
       : null;
 
@@ -153,10 +179,54 @@ export default function Transaction({ selectedCountry, setActiveTab, onGenerateI
         severity: 'info',
       });
     }
+    // UK-specific notices
+    if (supplierCountry === 'GB') {
+      if (category === 'Financial Services') {
+        importantNotices.push({
+          title: 'No Input VAT Reclaim',
+          body: 'Financial services are VAT-exempt in the UK. No input VAT reclaim is available on costs directly attributable to exempt financial services supplies.',
+          severity: 'warning',
+        });
+      }
+      if (category === 'Insurance') {
+        importantNotices.push({
+          title: 'Insurance Premium Tax Applies Separately',
+          body: 'Insurance is VAT-exempt in the UK. Insurance Premium Tax (IPT) applies separately at either the standard rate (12%) or higher rate (20%) depending on the type of insurance.',
+          severity: 'info',
+        });
+      }
+      if (category === 'Education') {
+        importantNotices.push({
+          title: 'Eligible Institutions Only',
+          body: 'Education is zero-rated for VAT in the UK when provided by eligible institutions: schools, universities, and approved training providers. Verify HMRC eligibility before applying 0%.',
+          severity: 'info',
+        });
+      }
+      if (category === 'Exports') {
+        importantNotices.push({
+          title: 'Proof of Export Required',
+          body: 'Exports outside the UK are zero-rated. You must retain proof of export (customs documentation, shipping records) to support the 0% zero-rating claim.',
+          severity: 'warning',
+        });
+      }
+      if (category === 'Intra-EU B2B') {
+        importantNotices.push({
+          title: 'Valid EU VAT ID Required',
+          body: 'Intra-EU B2B supplies from the UK are subject to 0% VAT under the reverse charge mechanism. A valid EU VAT ID from the buyer must be obtained and verified before applying this treatment.',
+          severity: 'warning',
+        });
+      }
+    }
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Transport VAT Modal (UK only) */}
+      <TransportVatModal
+        open={showTransportModal}
+        onClose={() => setShowTransportModal(false)}
+      />
+
       {/* Back Button */}
       <div className="mb-6">
         <Button
@@ -279,6 +349,22 @@ export default function Transaction({ selectedCountry, setActiveTab, onGenerateI
             </div>
           )}
 
+          {/* UK Transport: public transport toggle */}
+          {supplierCountry === 'GB' && category === 'Transport' && (
+            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border">
+              <input
+                type="checkbox"
+                id="publicTransport"
+                checked={isPublicTransport}
+                onChange={(e) => setIsPublicTransport(e.target.checked)}
+                className="h-4 w-4 rounded border-border"
+              />
+              <label htmlFor="publicTransport" className="text-sm cursor-pointer text-foreground">
+                This is public transport (bus/train) — 0% VAT
+              </label>
+            </div>
+          )}
+
           <Button onClick={handleCalculate} className="w-full">
             Calculate VAT
           </Button>
@@ -293,7 +379,7 @@ export default function Transaction({ selectedCountry, setActiveTab, onGenerateI
             {VAT_CATEGORIES.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setCategory(cat)}
+                onClick={() => handleCategorySelect(cat)}
                 className={`w-full text-left px-6 py-3 text-sm font-medium transition-colors border-b last:border-b-0 border-border/50 ${
                   category === cat
                     ? 'bg-primary text-primary-foreground'
@@ -302,9 +388,31 @@ export default function Transaction({ selectedCountry, setActiveTab, onGenerateI
               >
                 <span className="flex items-center justify-between">
                   <span>{cat}</span>
-                  {category === cat && (
-                    <span className="text-xs opacity-75 font-normal">Selected</span>
-                  )}
+                  <span className="flex items-center gap-2">
+                    {/* UK rate hint badges */}
+                    {supplierCountry === 'GB' && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-normal ${
+                        category === cat
+                          ? 'bg-primary-foreground/20 text-primary-foreground'
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {cat === 'Basic Food' && '0%'}
+                        {cat === 'Medical' && '0%'}
+                        {cat === 'Transport' && '0%/20%'}
+                        {cat === 'Hotel' && '20%'}
+                        {cat === 'Financial Services' && 'Exempt'}
+                        {cat === 'Insurance' && 'Exempt'}
+                        {cat === 'Education' && '0%'}
+                        {cat === 'Exports' && '0%'}
+                        {cat === 'Intra-EU B2B' && 'RC'}
+                        {cat === 'Books' && '0%'}
+                        {cat === 'Others' && '20%'}
+                      </span>
+                    )}
+                    {category === cat && (
+                      <span className="text-xs opacity-75 font-normal">Selected</span>
+                    )}
+                  </span>
                 </span>
               </button>
             ))}
@@ -361,6 +469,15 @@ export default function Transaction({ selectedCountry, setActiveTab, onGenerateI
                     <span className="font-medium">{calculationResult.vatType}</span>
                   </div>
                 </div>
+                {/* UK-specific note */}
+                {calculationResult.note && (
+                  <div className="border-t border-border pt-3">
+                    <p className="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                      <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-primary" />
+                      {calculationResult.note}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Generate Invoice Button */}

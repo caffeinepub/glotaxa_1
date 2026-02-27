@@ -2,12 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-add-a-generate-invoice-button-in-the-vat-calculation-summary-column-on-the-transaction-tab-when-clicked-it-should-pre-populate-the-invoice-tab-with-data-from-the-current-transaction-country-vat-rate-vat-type-net-amount-gross-amount-buyer-type-and-category-then-navigate-the-user-to-the-invoice-tab",
-      "featureTitle": "Add a 'Generate Invoice' button in the VAT Calculation Summary column on the Transaction tab. When clicked, it should pre-populate the Invoice tab with data from the current transaction (country, VAT rate, VAT type, net amount, gross amount, buyer type, and category), then navigate the user to the Invoice tab.",
+      "featureId": "feature-in-the-invoice-tab-frontend-src-pages-invoice-tsx-enforce-a-maximum-of-3-line-items-per-invoice-for-all-countries-when-the-invoice-already-has-3-line-items-the-add-line-item-button-or-equivalent-control-must-be-disabled-or-hidden-to-prevent-adding-a-fourth-item",
+      "featureTitle": "In the Invoice tab (frontend/src/pages/Invoice.tsx), enforce a maximum of 3 line items per invoice for all countries. When the invoice already has 3 line items, the 'Add Line Item' button (or equivalent control) must be disabled or hidden to prevent adding a fourth item.",
       "files": [
-        "frontend/src/App.tsx",
-        "frontend/src/pages/Invoice.tsx",
-        "frontend/src/pages/Transaction.tsx"
+        "frontend/src/pages/Invoice.tsx"
       ],
       "components": [
         "core-infrastructure@1.0.2",
@@ -18,27 +16,6 @@
       ],
       "testIds": [
         "REQ-1"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-add-a-back-button-on-each-tab-regionselect-country-transaction-invoice-api-docs-that-navigates-the-user-to-the-previous-screen-allowing-them-to-make-changes-the-back-button-on-the-first-screen-country-regionselect-should-be-hidden-or-disabled-since-there-is-no-prior-screen",
-      "featureTitle": "Add a 'Back' button on each tab (RegionSelect/Country, Transaction, Invoice, API Docs) that navigates the user to the previous screen, allowing them to make changes. The back button on the first screen (Country/RegionSelect) should be hidden or disabled since there is no prior screen.",
-      "files": [
-        "frontend/src/pages/ApiDocs.tsx",
-        "frontend/src/pages/Invoice.tsx",
-        "frontend/src/pages/RegionSelect.tsx",
-        "frontend/src/pages/Transaction.tsx"
-      ],
-      "components": [
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-2"
       ],
       "confidence": "high"
     }

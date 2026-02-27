@@ -1,70 +1,23 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Add Generate Invoice Button and Back Navigation Across All Tabs",
+  "title": "Limit invoice line items to a maximum of 3 per invoice",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Add a 'Generate Invoice' button in the VAT Calculation Summary that pre-populates the Invoice tab with transaction data and navigates to it",
+      "summary": "Enforce a maximum of 3 line items per invoice in the Invoice tab for all countries",
       "acceptanceCriteria": [
-        "A 'Generate Invoice' button is visible in the VAT Calculation Summary column on the Transaction tab.",
-        "Clicking the button transfers transaction data (country, VAT rate, VAT type, amounts, buyer type, category) into the Invoice tab form fields.",
-        "The app navigates to the Invoice tab after clicking the button.",
-        "If no VAT calculation has been performed yet, the button is disabled or shows a tooltip prompting the user to complete the calculation first."
+        "A user can add up to 3 line items on a single invoice.",
+        "When 3 line items are present, the 'Add Line Item' button is disabled or hidden.",
+        "This limit applies regardless of the selected country.",
+        "Removing a line item re-enables the ability to add a new one (up to the 3-item limit).",
+        "Existing invoices with fewer than 3 line items are unaffected and can still have items added up to the limit."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/App.tsx",
-          "operation": "modify",
-          "description": "Add state to hold transaction data for invoice pre-population (country, VAT rate, VAT type, net amount, gross amount, buyer type, category). Pass this state and a setter function down to the Transaction page, and pass the pre-populated data to the Invoice page. Ensure the existing shared state mechanism is used."
-        },
-        {
-          "path": "frontend/src/pages/Transaction.tsx",
-          "operation": "modify",
-          "description": "Accept the invoice pre-population setter function as a prop from App.tsx. Add logic to enable the 'Generate Invoice' button only when a VAT calculation has been performed. On button click, populate the shared state with current transaction data and trigger navigation to the Invoice tab by calling the setActiveTab function passed from App.tsx."
-        },
-        {
-          "path": "frontend/src/components/CompliancePanel.tsx",
-          "operation": "modify",
-          "description": "Add a 'Generate Invoice' button to the component that appears after VAT calculation results are shown. The button should be disabled when no calculation data is available. Accept callback props for populating invoice data and navigating to the Invoice tab, which will be passed down from Transaction.tsx."
-        },
-        {
           "path": "frontend/src/pages/Invoice.tsx",
           "operation": "modify",
-          "description": "Accept pre-populated transaction data as props from App.tsx. When the component mounts or receives new pre-populated data, update the form fields (seller country, invoice date defaults, line item with category-based description, net/gross amounts, VAT rate and type). Ensure existing invoice functionality remains intact."
-        }
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "summary": "Add 'Back' button navigation on Transaction, Invoice, and API Docs tabs to return to the previous screen",
-      "acceptanceCriteria": [
-        "A 'Back' button is visible on the Transaction tab and navigates to the Country/RegionSelect tab.",
-        "A 'Back' button is visible on the Invoice tab and navigates to the Transaction tab.",
-        "A 'Back' button is visible on the API Docs tab and navigates to the Invoice tab.",
-        "The Country/RegionSelect tab either hides the Back button or shows it as disabled since it is the first screen.",
-        "Navigating back preserves any previously entered data in the tab being returned to."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/pages/Transaction.tsx",
-          "operation": "modify",
-          "description": "Add a 'Back' button near the top of the page that calls setActiveTab('country') to navigate back to the RegionSelect tab. Position it consistently with the overall page layout."
-        },
-        {
-          "path": "frontend/src/pages/Invoice.tsx",
-          "operation": "modify",
-          "description": "Add a 'Back' button near the top of the page that calls setActiveTab('transaction') to navigate back to the Transaction tab. Position it consistently with the overall page layout."
-        },
-        {
-          "path": "frontend/src/pages/ApiDocs.tsx",
-          "operation": "modify",
-          "description": "Add a 'Back' button near the top of the page that calls setActiveTab('invoice') to navigate back to the Invoice tab. Position it consistently with the overall page layout."
-        },
-        {
-          "path": "frontend/src/pages/RegionSelect.tsx",
-          "operation": "modify",
-          "description": "Add a disabled or visually hidden 'Back' button to maintain layout consistency across tabs, since this is the first screen and has no previous tab to navigate to."
+          "description": "Add logic to disable or hide the 'Add Line Item' button when the invoice already contains 3 line items. Check the lineItems array length and conditionally disable the button when lineItems.length >= 3. Ensure the button becomes enabled again when a line item is removed and the count drops below 3. This constraint must apply universally across all selected countries."
         }
       ]
     }

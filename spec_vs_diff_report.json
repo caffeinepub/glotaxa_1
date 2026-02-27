@@ -1,27 +1,14 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-26T13:21:34.433Z",
-  "summary": "Both REQ-1 and REQ-2 are largely implemented. REQ-1 adds a Generate Invoice button in Transaction.tsx with pre-population logic and navigation to the Invoice tab. REQ-2 adds Back buttons on Transaction, Invoice, and ApiDocs tabs. The RegionSelect tab hides the Back button. One minor gap: the Transaction.tsx diff is truncated so the disabled state or tooltip for the Generate Invoice button when no calculation has been performed cannot be fully confirmed.",
-  "missing_requirements": [
-    {
-      "id": "REQ-1",
-      "requirement": "If no VAT calculation has been performed yet, the button is disabled or shows a tooltip prompting the user to complete the calculation first.",
-      "reason": "The Transaction.tsx diff is truncated and does not show the Generate Invoice button's UI-level disabled prop or tooltip when hasCalculated is false. The handler returns early if calculationResult is null, but no visible disabled or tooltip UI is confirmed in the diff.",
-      "evidence": [
-        "frontend/src/pages/Transaction.tsx"
-      ]
-    }
-  ],
+  "generatedAt": "2026-02-27T08:01:48.997Z",
+  "summary": "The diff modifies frontend/src/pages/Invoice.tsx to introduce a MAX_LINE_ITEMS = 3 constant, which is the core mechanism for REQ-1. The implementation appears to be in place structurally (constant defined, file modified), but the diff is truncated so we cannot fully verify the UI enforcement (disabled/hidden button logic). Based on available evidence, the requirement appears substantially implemented with no hallucinated features detected.",
+  "missing_requirements": [],
   "hallucinated_features": [],
-  "confidence": 0.72,
+  "confidence": 0.7,
   "changed_files": [
     "frontend-file-summaries.txt",
-    "frontend/src/App.tsx",
-    "frontend/src/pages/ApiDocs.tsx",
     "frontend/src/pages/Invoice.tsx",
-    "frontend/src/pages/RegionSelect.tsx",
-    "frontend/src/pages/Transaction.tsx",
     "project_state.json"
   ]
 }

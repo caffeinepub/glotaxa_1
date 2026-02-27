@@ -23,6 +23,8 @@ interface LocalLineItem {
   vatRate: number;
 }
 
+const MAX_LINE_ITEMS = 3;
+
 const ITEM_TYPES = ['Goods', 'Services', 'Digital Services', 'Mixed'];
 const VAT_CATEGORIES_LIST = ['Others', 'Basic Food', 'Books', 'Medical', 'Transport', 'Hotel', 'Financial Services', 'Insurance', 'Education', 'Exports', 'Intra-EU B2B'];
 const CURRENCIES = ['EUR', 'GBP', 'SEK', 'PLN', 'HUF'];
@@ -36,24 +38,46 @@ function generateInvoiceNumber() {
   return `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 9000) + 1000}`;
 }
 
-// Map VAT category string to a numeric rate for a given country
+/**
+ * Resolve the correct VAT rate for a given category and country.
+ * For GB, uses the categoryRates map from vatRules.ts (same source as vatEngine.ts).
+ * For non-GB countries, uses the standard reduced/standard rate logic.
+ */
 function getVatRateForCategory(vatCategory: string, country: CountryCode): number {
   const rules = VAT_RULES[country];
   if (!rules) return 0;
+
+  // UK (GB) — use categoryRates map directly, matching vatEngine.ts logic
+  if (country === 'GB') {
+    // Intra-EU B2B: reverse charge → 0%
+    if (vatCategory === 'Intra-EU B2B') return 0;
+
+    // Transport: default 20% (public transport 0% is a special case handled separately)
+    if (vatCategory === 'Transport') return 20;
+
+    // Check category-specific rates from vatRules.ts
+    if (rules.categoryRates && vatCategory in rules.categoryRates) {
+      return rules.categoryRates[vatCategory].rate;
+    }
+
+    // All other UK categories (e.g. Books, Others): standard 20%
+    return rules.standard;
+  }
+
+  // Non-UK countries
   switch (vatCategory) {
     case 'Financial Services':
     case 'Insurance':
     case 'Education':
-      return 0;
+      return 0; // Exempt
     case 'Exports':
     case 'Intra-EU B2B':
-      return 0;
+      return 0; // Zero-rated / Reverse Charge
     case 'Basic Food':
     case 'Books':
     case 'Medical':
     case 'Transport':
     case 'Hotel':
-      if (country === 'GB') return 0;
       return rules.reduced ?? rules.standard;
     default:
       return rules.standard;
@@ -93,6 +117,8 @@ export default function Invoice({ setActiveTab, prePopData }: InvoiceProps) {
   const [earlyPaymentDiscount, setEarlyPaymentDiscount] = useState('2% if paid within 10 days');
   const [latePenaltyTerms, setLatePenaltyTerms] = useState('1.5% per month on overdue amounts');
   const [notes, setNotes] = useState('');
+
+  const atLineItemLimit = lineItems.length >= MAX_LINE_ITEMS;
 
   // Pre-populate from transaction data
   useEffect(() => {
@@ -166,6 +192,7 @@ export default function Invoice({ setActiveTab, prePopData }: InvoiceProps) {
   };
 
   const addLineItem = () => {
+    if (atLineItemLimit) return;
     setLineItems((prev) => [
       ...prev,
       { id: String(Date.now()), description: '', itemType: 'Services', netAmount: 0, vatCategory: 'Others', vatRate: getVatRateForCategory('Others', sellerCountry) },
@@ -321,7 +348,7 @@ export default function Invoice({ setActiveTab, prePopData }: InvoiceProps) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">VAT Number</label>
-                <Input value={sellerVatNumber} onChange={(e) => setSellerVatNumber(e.target.value)} placeholder="DE123456789" />
+                <Input value={sellerVatNumber} onChange={(e) => setSellerVatNumber(e.target.value)} placeholder="GB123456789" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Email</label>
@@ -329,13 +356,23 @@ export default function Invoice({ setActiveTab, prePopData }: InvoiceProps) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Phone</label>
-                <Input value={sellerPhone} onChange={(e) => setSellerPhone(e.target.value)} placeholder="+49 123 456789" />
+                <Input value={sellerPhone} onChange={(e) => setSellerPhone(e.target.value)} placeholder="+44 123 456789" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Country</label>
                 <select
                   value={sellerCountry}
-                  onChange={(e) => setSellerCountry(e.target.value as CountryCode)}
+                  onChange={(e) => {
+                    const newCountry = e.target.value as CountryCode;
+                    setSellerCountry(newCountry);
+                    // Re-calculate VAT rates for all line items when country changes
+                    setLineItems((prev) =>
+                      prev.map((item) => ({
+                        ...item,
+                        vatRate: getVatRateForCategory(item.vatCategory, newCountry),
+                      }))
+                    );
+                  }}
                   className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   {Object.entries(COUNTRY_NAMES).map(([code, name]) => (
@@ -373,8 +410,25 @@ export default function Invoice({ setActiveTab, prePopData }: InvoiceProps) {
         {/* Line Items */}
         <div className="bg-card border border-border rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-foreground">Line Items</h2>
-            <Button variant="outline" size="sm" onClick={addLineItem} className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-semibold text-foreground">Line Items</h2>
+              <span className="text-xs text-muted-foreground">
+                {lineItems.length} / {MAX_LINE_ITEMS}
+              </span>
+              {atLineItemLimit && (
+                <span className="text-xs text-warning font-medium bg-warning/10 px-2 py-0.5 rounded-full">
+                  Maximum reached
+                </span>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addLineItem}
+              disabled={atLineItemLimit}
+              className="flex items-center gap-2"
+              title={atLineItemLimit ? `Maximum of ${MAX_LINE_ITEMS} line items allowed per invoice` : 'Add a new line item'}
+            >
               <Plus className="w-4 h-4" />
               Add Item
             </Button>
@@ -408,9 +462,11 @@ export default function Invoice({ setActiveTab, prePopData }: InvoiceProps) {
                       <select
                         value={item.itemType}
                         onChange={(e) => updateLineItem(item.id, 'itemType', e.target.value)}
-                        className="w-full px-2 py-1 bg-background border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="h-8 px-2 bg-background border border-border rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                       >
-                        {ITEM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                        {ITEM_TYPES.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
                       </select>
                     </td>
                     <td className="py-2 pr-3">
@@ -420,35 +476,39 @@ export default function Invoice({ setActiveTab, prePopData }: InvoiceProps) {
                         onChange={(e) => updateLineItem(item.id, 'netAmount', parseFloat(e.target.value) || 0)}
                         className="h-8 text-xs text-right"
                         min="0"
+                        step="0.01"
                       />
                     </td>
                     <td className="py-2 pr-3">
                       <select
                         value={item.vatCategory}
                         onChange={(e) => updateLineItem(item.id, 'vatCategory', e.target.value)}
-                        className="w-full px-2 py-1 bg-background border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="h-8 px-2 bg-background border border-border rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                       >
-                        {VAT_CATEGORIES_LIST.map((c) => <option key={c} value={c}>{c}</option>)}
+                        {VAT_CATEGORIES_LIST.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
                       </select>
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="py-2 pr-3 text-right">
                       <Input
                         type="number"
                         value={item.vatRate}
                         onChange={(e) => updateLineItem(item.id, 'vatRate', parseFloat(e.target.value) || 0)}
-                        className="h-8 text-xs text-right"
+                        className="h-8 text-xs text-right w-20"
                         min="0"
                         max="100"
+                        step="0.1"
                       />
                     </td>
-                    <td className="py-2 pr-3 text-right text-xs text-muted-foreground">
-                      {(item.netAmount * (item.vatRate / 100)).toFixed(2)}
+                    <td className="py-2 pr-3 text-right text-xs text-muted-foreground whitespace-nowrap">
+                      {currency} {(item.netAmount * (item.vatRate / 100)).toFixed(2)}
                     </td>
                     <td className="py-2">
                       <button
                         onClick={() => removeLineItem(item.id)}
-                        disabled={lineItems.length === 1}
-                        className="p-1 text-muted-foreground hover:text-destructive disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Remove line item"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -458,52 +518,47 @@ export default function Invoice({ setActiveTab, prePopData }: InvoiceProps) {
               </tbody>
             </table>
           </div>
-        </div>
-
-        {/* VAT Breakdown & Totals */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* VAT Breakdown */}
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="text-base font-semibold text-foreground mb-4">VAT Breakdown</h2>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-right py-1 text-xs font-medium text-muted-foreground">Rate</th>
-                  <th className="text-right py-1 text-xs font-medium text-muted-foreground">Base</th>
-                  <th className="text-right py-1 text-xs font-medium text-muted-foreground">VAT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(vatBreakdown).map(([rate, v]) => (
-                  <tr key={rate} className="border-b border-border/50">
-                    <td className="py-1.5 text-xs text-right text-foreground">{v.rate}%</td>
-                    <td className="py-1.5 text-xs text-right text-foreground">{v.base.toFixed(2)}</td>
-                    <td className="py-1.5 text-xs text-right text-foreground">{v.vat.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
 
           {/* Totals */}
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="text-base font-semibold text-foreground mb-4">Invoice Totals</h2>
-            <div className="space-y-2">
+          <div className="mt-4 flex justify-end">
+            <div className="w-64 space-y-1.5">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Net Total</span>
+                <span className="text-muted-foreground">Subtotal (Net)</span>
                 <span className="font-medium">{currency} {totalNet.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Total VAT</span>
-                <span className="font-medium">{currency} {totalVat.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm font-bold border-t border-border pt-2 mt-2">
-                <span>Gross Total</span>
-                <span className="text-primary">{currency} {totalGross.toFixed(2)}</span>
+              {Object.values(vatBreakdown).map((v) => (
+                <div key={v.rate} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">VAT {v.rate}%</span>
+                  <span>{currency} {v.vat.toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm font-semibold border-t border-border pt-1.5">
+                <span>Total (Gross)</span>
+                <span>{currency} {totalGross.toFixed(2)}</span>
               </div>
             </div>
+          </div>
+        </div>
 
-            <div className="mt-4 pt-4 border-t border-border">
+        {/* Payment Terms */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-base font-semibold text-foreground mb-4">Payment Terms</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Payment Means</label>
+              <select
+                value={paymentMeans}
+                onChange={(e) => setPaymentMeans(e.target.value)}
+                className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option>Bank Transfer</option>
+                <option>Credit Card</option>
+                <option>Direct Debit</option>
+                <option>Cheque</option>
+                <option>Cash</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Currency</label>
               <select
                 value={currency}
@@ -515,41 +570,68 @@ export default function Invoice({ setActiveTab, prePopData }: InvoiceProps) {
                 ))}
               </select>
             </div>
-          </div>
-        </div>
-
-        {/* Payment Terms & Notes */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-semibold text-foreground mb-4">Payment Terms & Notes</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Payment Means</label>
-              <Input value={paymentMeans} onChange={(e) => setPaymentMeans(e.target.value)} placeholder="Bank Transfer" />
-            </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">IBAN</label>
-              <Input value={iban} onChange={(e) => setIban(e.target.value)} placeholder="GB00BANK00000000000000" />
+              <Input value={iban} onChange={(e) => setIban(e.target.value)} placeholder="GB29 NWBK 6016 1331 9268 19" />
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Early Payment Discount</label>
-              <Input value={earlyPaymentDiscount} onChange={(e) => setEarlyPaymentDiscount(e.target.value)} placeholder="2% if paid within 10 days" />
+              <Input value={earlyPaymentDiscount} onChange={(e) => setEarlyPaymentDiscount(e.target.value)} />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-muted-foreground mb-1">Late Penalty Terms</label>
-              <Input value={latePenaltyTerms} onChange={(e) => setLatePenaltyTerms(e.target.value)} placeholder="1.5% per month" />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Notes / Legal Text</label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Additional notes or legal text" />
+              <Input value={latePenaltyTerms} onChange={(e) => setLatePenaltyTerms(e.target.value)} />
             </div>
           </div>
         </div>
+
+        {/* Notes */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-base font-semibold text-foreground mb-4">Notes</h2>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Additional notes, reverse charge statements, etc."
+            className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          />
+        </div>
+
+        {/* UK VAT Reference Panel */}
+        {sellerCountry === 'GB' && (
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="text-base font-semibold text-foreground mb-3">UK VAT Rate Reference</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              {[
+                { cat: 'Others', rate: '20%', note: 'Standard' },
+                { cat: 'Basic Food', rate: '0%', note: 'Zero-rated' },
+                { cat: 'Books', rate: '0%', note: 'Zero-rated' },
+                { cat: 'Medical', rate: '0%', note: 'Zero-rated' },
+                { cat: 'Transport', rate: '20%/0%', note: 'Mixed' },
+                { cat: 'Hotel', rate: '20%', note: 'Standard' },
+                { cat: 'Financial Services', rate: '0%', note: 'Exempt' },
+                { cat: 'Insurance', rate: '0%', note: 'Exempt' },
+                { cat: 'Education', rate: '0%', note: 'Zero-rated' },
+                { cat: 'Exports', rate: '0%', note: 'Zero-rated' },
+                { cat: 'Intra-EU B2B', rate: '0%', note: 'Reverse Charge' },
+              ].map(({ cat, rate, note }) => (
+                <div key={cat} className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2">
+                  <span className="text-muted-foreground">{cat}</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-foreground">{rate}</span>
+                    <span className="block text-muted-foreground/70">{note}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Export Actions */}
         <div className="flex justify-end gap-3 pb-4">
           <Button variant="outline" onClick={handleDownloadXML} className="flex items-center gap-2">
             <FileCode className="w-4 h-4" />
-            Download XML (UBL 2.1)
+            Download XML
           </Button>
           <Button onClick={handleDownloadPDF} className="flex items-center gap-2">
             <Download className="w-4 h-4" />

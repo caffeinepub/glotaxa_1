@@ -1,59 +1,38 @@
 {
   "kind": "build_request",
-  "title": "Add Generate Invoice Button and Back Navigation Across All Tabs",
-  "projectName": "Glotaxa VAT",
+  "title": "Limit invoice line items to a maximum of 3 per invoice",
+  "projectName": "Glotaxa",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Add a 'Generate Invoice' button in the VAT Calculation Summary column on the Transaction tab. When clicked, it should pre-populate the Invoice tab with data from the current transaction (country, VAT rate, VAT type, net amount, gross amount, buyer type, and category), then navigate the user to the Invoice tab.",
+      "text": "In the Invoice tab (frontend/src/pages/Invoice.tsx), enforce a maximum of 3 line items per invoice for all countries. When the invoice already has 3 line items, the 'Add Line Item' button (or equivalent control) must be disabled or hidden to prevent adding a fourth item.",
       "target": "frontend",
       "source": {
         "messageIds": [
           "msg-4"
         ],
         "quotes": [
-          "add a Generate Invoice Button on the VAT Calculation Summary Column. so that information from the Transaction tab flows into Invoice tab"
+          "In the Invoice tab, For all the countries, ensure only 3 line items can be added per invoice."
         ]
       },
       "acceptanceCriteria": [
-        "A 'Generate Invoice' button is visible in the VAT Calculation Summary column on the Transaction tab.",
-        "Clicking the button transfers transaction data (country, VAT rate, VAT type, amounts, buyer type, category) into the Invoice tab form fields.",
-        "The app navigates to the Invoice tab after clicking the button.",
-        "If no VAT calculation has been performed yet, the button is disabled or shows a tooltip prompting the user to complete the calculation first."
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "text": "Add a 'Back' button on each tab (RegionSelect/Country, Transaction, Invoice, API Docs) that navigates the user to the previous screen, allowing them to make changes. The back button on the first screen (Country/RegionSelect) should be hidden or disabled since there is no prior screen.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4"
-        ],
-        "quotes": [
-          "In all the tabs, add a back button so that user can make changes in the previous screens"
-        ]
-      },
-      "acceptanceCriteria": [
-        "A 'Back' button is visible on the Transaction tab and navigates to the Country/RegionSelect tab.",
-        "A 'Back' button is visible on the Invoice tab and navigates to the Transaction tab.",
-        "A 'Back' button is visible on the API Docs tab and navigates to the Invoice tab.",
-        "The Country/RegionSelect tab either hides the Back button or shows it as disabled since it is the first screen.",
-        "Navigating back preserves any previously entered data in the tab being returned to."
+        "A user can add up to 3 line items on a single invoice.",
+        "When 3 line items are present, the 'Add Line Item' button is disabled or hidden.",
+        "This limit applies regardless of the selected country.",
+        "Removing a line item re-enables the ability to add a new one (up to the 3-item limit).",
+        "Existing invoices with fewer than 3 line items are unaffected and can still have items added up to the limit."
       ]
     }
   ],
   "constraints": [
-    "Do not modify files under frontend/src/hooks/ or frontend/src/components/ui/.",
-    "All state sharing between Transaction and Invoice tabs must go through the existing shared state mechanism in App.tsx.",
-    "Back navigation must use the existing tab-switching mechanism in App.tsx rather than browser history."
+    "The 3-line-item limit must apply universally across all supported countries.",
+    "Do not modify any files under frontend/src/hooks/ or frontend/src/components/ui."
   ],
   "nonGoals": [
-    "Changing the backend schema or VAT rate logic.",
-    "Adding new tabs or pages beyond the existing four.",
-    "Implementing browser history-based routing (e.g., React Router).",
-    "Resetting form state when navigating back between tabs."
+    "Changing the backend VAT rate logic or data model.",
+    "Modifying the PDF or XML export format.",
+    "Altering any existing line item fields or VAT calculation behaviour."
   ],
   "imageRequirements": {
     "required": [],
