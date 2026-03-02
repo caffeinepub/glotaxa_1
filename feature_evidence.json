@@ -2,10 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-in-the-invoice-tab-frontend-src-pages-invoice-tsx-enforce-a-maximum-of-3-line-items-per-invoice-for-all-countries-when-the-invoice-already-has-3-line-items-the-add-line-item-button-or-equivalent-control-must-be-disabled-or-hidden-to-prevent-adding-a-fourth-item",
-      "featureTitle": "In the Invoice tab (frontend/src/pages/Invoice.tsx), enforce a maximum of 3 line items per invoice for all countries. When the invoice already has 3 line items, the 'Add Line Item' button (or equivalent control) must be disabled or hidden to prevent adding a fourth item.",
+      "featureId": "feature-in-the-pricing-page-frontend-src-pages-pricing-tsx-move-the-most-popular-for-freelancers-badge-label-so-it-is-rendered-inside-the-starter-plan-column-e-g-above-the-plan-title-or-as-an-inline-chip-within-the-card-rather-than-floating-outside-or-above-the-column-boundary",
+      "featureTitle": "In the Pricing page (`frontend/src/pages/Pricing.tsx`), move the 'Most Popular for Freelancers' badge/label so it is rendered inside the Starter plan column (e.g., above the plan title or as an inline chip within the card), rather than floating outside or above the column boundary.",
       "files": [
-        "frontend/src/pages/Invoice.tsx"
+        "frontend/src/pages/Pricing.tsx"
       ],
       "components": [
         "core-infrastructure@1.0.2",
@@ -16,6 +16,24 @@
       ],
       "testIds": [
         "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-in-the-pricing-page-frontend-src-pages-pricing-tsx-move-the-best-value-label-badge-so-it-is-rendered-inside-the-pro-plan-column-e-g-above-the-plan-title-or-as-an-inline-chip-within-the-card-rather-than-floating-outside-or-above-the-column-boundary",
+      "featureTitle": "In the Pricing page (`frontend/src/pages/Pricing.tsx`), move the 'Best Value' label/badge so it is rendered inside the Pro plan column (e.g., above the plan title or as an inline chip within the card), rather than floating outside or above the column boundary.",
+      "files": [
+        "frontend/src/pages/Pricing.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
       ],
       "confidence": "high"
     }

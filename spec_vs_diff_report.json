@@ -1,14 +1,14 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-27T08:01:48.997Z",
-  "summary": "The diff modifies frontend/src/pages/Invoice.tsx to introduce a MAX_LINE_ITEMS = 3 constant, which is the core mechanism for REQ-1. The implementation appears to be in place structurally (constant defined, file modified), but the diff is truncated so we cannot fully verify the UI enforcement (disabled/hidden button logic). Based on available evidence, the requirement appears substantially implemented with no hallucinated features detected.",
+  "generatedAt": "2026-03-01T09:31:52.129Z",
+  "summary": "Both REQ-1 and REQ-2 appear to be implemented in the diff. The Pricing.tsx file now renders the 'Most Popular for Freelancers' and 'Best Value' badges as inline Badge components inside the PlanCard component, positioned at the top of the card content (above the icon/title row), rather than floating outside the column boundaries. The implementation uses a conditional render block with plan.highlightTag and applies distinct styling for isPopular vs isBestValue plans.",
   "missing_requirements": [],
   "hallucinated_features": [],
-  "confidence": 0.7,
+  "confidence": 0.92,
   "changed_files": [
     "frontend-file-summaries.txt",
-    "frontend/src/pages/Invoice.tsx",
+    "frontend/src/pages/Pricing.tsx",
     "project_state.json"
   ]
 }

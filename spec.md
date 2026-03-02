@@ -1,11 +1,10 @@
 # Specification
 
 ## Summary
-**Goal:** Limit invoice line items to a maximum of 3 per invoice in the Invoice tab, for all countries.
+**Goal:** Move the "Most Popular for Freelancers" and "Best Value" badges so they appear inside their respective plan cards on the Pricing page.
 
 **Planned changes:**
-- Disable or hide the "Add Line Item" button in `Invoice.tsx` when 3 line items are already present
-- Apply this limit universally regardless of the selected country
-- Re-enable the "Add Line Item" button if a line item is removed and the count drops below 3
+- Move the "Most Popular for Freelancers" badge/label inside the Starter plan card (e.g., above the plan title or as an inline chip), so it is fully contained within the card boundaries.
+- Move the "Best Value" badge/label inside the Pro plan card (e.g., above the plan title or as an inline chip), so it is fully contained within the card boundaries.
 
-**User-visible outcome:** Users can add up to 3 line items on an invoice; the option to add more is disabled once the limit is reached and becomes available again if an item is removed.
+**User-visible outcome:** On the Pricing page, both promotional badges are displayed within their respective plan columns rather than floating outside or overlapping adjacent columns, on both desktop and mobile viewports.

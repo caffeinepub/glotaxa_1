@@ -1,30 +1,30 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "App with an Invoice tab that supports multiple countries and VAT categories. Line items are limited to 3 per invoice across all countries.",
+  "summary": "App with a Pricing tab featuring multiple plans (Starter, Pro, and others). User is refining the pricing UI layout.",
   "architectural_notes": [],
   "known_issues": [],
-  "isFixRequest": false,
+  "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-in-the-invoice-tab-frontend-src-pages-invoice-tsx-enforce-a-maximum-of-3-line-items-per-invoice-for-all-countries-when-the-invoice-already-has-3-line-items-the-add-line-item-button-or-equivalent-control-must-be-disabled-or-hidden-to-prevent-adding-a-fourth-item",
-      "title": "In the Invoice tab (frontend/src/pages/Invoice.tsx), enforce a maximum of 3 line items per invoice for all countries. When the invoice already has 3 line items, the 'Add Line Item' button (or equivalent control) must be disabled or hidden to prevent adding a fourth item.",
+      "id": "feature-in-the-pricing-page-frontend-src-pages-pricing-tsx-move-the-most-popular-for-freelancers-badge-label-so-it-is-rendered-inside-the-starter-plan-column-e-g-above-the-plan-title-or-as-an-inline-chip-within-the-card-rather-than-floating-outside-or-above-the-column-boundary",
+      "title": "In the Pricing page (`frontend/src/pages/Pricing.tsx`), move the 'Most Popular for Freelancers' badge/label so it is rendered inside the Starter plan column (e.g., above the plan title or as an inline chip within the card), rather than floating outside or above the column boundary.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
-    }
-  ],
-  "new_feature_requests": [
+    },
     {
-      "id": "AR-1",
-      "summary": "Limit invoice line items to a maximum of 3 per invoice for all countries in the Invoice tab",
-      "reqIds": [],
-      "status": "pending"
+      "id": "feature-in-the-pricing-page-frontend-src-pages-pricing-tsx-move-the-best-value-label-badge-so-it-is-rendered-inside-the-pro-plan-column-e-g-above-the-plan-title-or-as-an-inline-chip-within-the-card-rather-than-floating-outside-or-above-the-column-boundary",
+      "title": "In the Pricing page (`frontend/src/pages/Pricing.tsx`), move the 'Best Value' label/badge so it is rendered inside the Pro plan column (e.g., above the plan title or as an inline chip within the card), rather than floating outside or above the column boundary.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
     }
   ],
-  "gameProjectType": "none",
-  "projectName": "Glotaxa",
+  "new_feature_requests": [],
+  "projectName": "Fix Pricing Tab Badge Placement — Move Labels Inside Plan Columns",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

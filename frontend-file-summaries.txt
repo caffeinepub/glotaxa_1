@@ -1,5 +1,5 @@
 {
-  "frontend/src/App.tsx": "Main app component using named imports for Header and Footer, managing `selectedCountry` and `invoicePrePopData` shared state, tab navigation bar, and wiring `onGenerateInvoice` callback between Transaction and Invoice pages.",
+  "frontend/src/App.tsx": "Main app component managing tab navigation (now 5 tabs: Select Region, Transaction, Invoice, API Docs, Pricing), shared state for selectedCountry and invoicePrePopData, and wiring all page components including the new Pricing page; TabName type extended with 'pricing'.",
   "frontend/src/components/Header.tsx": "Header component displaying the Glotaxa brand with calculator icon and sticky positioning at the top of the page.",
   "frontend/src/components/Hero.tsx": "Hero section component featuring the prominent highlighted tagline about multi-country tax calculation and compliant invoice generation with gradient styling.",
   "frontend/src/components/RegionSelector.tsx": "Region selector component displaying EU countries and UK region in interactive cards that navigate to the calculator page with selected country when clicked.",
@@ -28,5 +28,6 @@
   "frontend/src/utils/riskDetector.ts": "New utility that detects compliance risks for a transaction, returning an array of warning strings: \"Possible OSS VAT registration required\" for cross-border B2C and \"Verify eligibility for reduced VAT\" when the reduced rate applies.",
   "frontend/src/components/CompliancePanel.tsx": "New CompliancePanel component that displays a Transaction Result block (VAT rate and type), a visual Compliance Score with progress bar and badge, an OSS warning when applicable, and a list of all compliance warnings from both the score deductions and risk detector.",
   "frontend/src/pages/ApiDocs.tsx": "API documentation page showing the VAT Calculation API contract with endpoint, request/response tables, examples, error codes, supported countries, and API access instructions; includes a Back button to the Invoice tab.",
-  "frontend/src/components/TransportVatModal.tsx": "New modal dialog component using shadcn Dialog that displays the UK Transport mixed VAT rate explanation — public transport (bus/train) at 0% and taxis/car hire at 20% — with a default-20% note and a dismiss button."
+  "frontend/src/components/TransportVatModal.tsx": "New modal dialog component using shadcn Dialog that displays the UK Transport mixed VAT rate explanation — public transport (bus/train) at 0% and taxis/car hire at 20% — with a default-20% note and a dismiss button.",
+  "frontend/src/pages/Pricing.tsx": "Pricing page displaying 4 plan cards (FREE, STARTER, PRO, BUSINESS) where the 'Most Popular for Freelancers' and 'Best Value' highlight badges are now rendered as inline elements inside their respective card headers (above the icon/title row), fully contained within the card boundaries rather than positioned absolutely above the card."
 }

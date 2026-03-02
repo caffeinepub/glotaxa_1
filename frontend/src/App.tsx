@@ -5,8 +5,9 @@ import RegionSelect from './pages/RegionSelect';
 import Transaction from './pages/Transaction';
 import Invoice from './pages/Invoice';
 import ApiDocs from './pages/ApiDocs';
+import Pricing from './pages/Pricing';
 
-export type TabName = 'country' | 'transaction' | 'invoice' | 'apidocs';
+export type TabName = 'country' | 'transaction' | 'invoice' | 'apidocs' | 'pricing';
 
 export interface InvoicePrePopData {
   country: string;
@@ -42,17 +43,18 @@ function App() {
       {/* Tab Navigation */}
       <div className="sticky top-16 z-40 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-7xl mx-auto px-4">
-          <nav className="flex gap-1 py-2" aria-label="Main navigation">
+          <nav className="flex gap-1 py-2 overflow-x-auto" aria-label="Main navigation">
             {[
               { id: 'country', label: '1. Select Region' },
               { id: 'transaction', label: '2. Transaction' },
               { id: 'invoice', label: '3. Invoice' },
               { id: 'apidocs', label: '4. API Docs' },
+              { id: 'pricing', label: '5. Pricing' },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabName)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -87,6 +89,9 @@ function App() {
         )}
         {activeTab === 'apidocs' && (
           <ApiDocs setActiveTab={setActiveTab} />
+        )}
+        {activeTab === 'pricing' && (
+          <Pricing />
         )}
       </main>
 

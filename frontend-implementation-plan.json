@@ -1,23 +1,37 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Limit invoice line items to a maximum of 3 per invoice",
+  "title": "Fix Pricing Tab Badge Placement — Move Labels Inside Plan Columns",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Enforce a maximum of 3 line items per invoice in the Invoice tab for all countries",
+      "summary": "Move the 'Most Popular for Freelancers' badge inside the Starter plan card boundaries",
       "acceptanceCriteria": [
-        "A user can add up to 3 line items on a single invoice.",
-        "When 3 line items are present, the 'Add Line Item' button is disabled or hidden.",
-        "This limit applies regardless of the selected country.",
-        "Removing a line item re-enables the ability to add a new one (up to the 3-item limit).",
-        "Existing invoices with fewer than 3 line items are unaffected and can still have items added up to the limit."
+        "The 'Most Popular for Freelancers' label/badge is visually contained within the Starter plan card boundaries.",
+        "The badge does not overlap with adjacent plan columns.",
+        "The Starter card layout remains consistent and readable on desktop and mobile viewports."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/pages/Invoice.tsx",
+          "path": "frontend/src/pages/Pricing.tsx",
           "operation": "modify",
-          "description": "Add logic to disable or hide the 'Add Line Item' button when the invoice already contains 3 line items. Check the lineItems array length and conditionally disable the button when lineItems.length >= 3. Ensure the button becomes enabled again when a line item is removed and the count drops below 3. This constraint must apply universally across all selected countries."
+          "description": "Relocate the 'Most Popular for Freelancers' badge from its current position (likely above or outside the Starter card) to inside the Starter plan column. Position it as an inline element within the card, such as above the plan title or as a chip component within the card header. Ensure the badge styling (background, padding, text) is preserved and the card layout accommodates the badge without breaking responsive behavior."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Move the 'Best Value' badge inside the Pro plan card boundaries",
+      "acceptanceCriteria": [
+        "The 'Best Value' label/badge is visually contained within the Pro plan card boundaries.",
+        "The badge does not overlap with adjacent plan columns.",
+        "The Pro card layout remains consistent and readable on desktop and mobile viewports."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Pricing.tsx",
+          "operation": "modify",
+          "description": "Relocate the 'Best Value' label/badge from its current position (likely above or outside the Pro card) to inside the Pro plan column. Position it as an inline element within the card, such as above the plan title or as a chip component within the card header. Ensure the badge styling (background, padding, text) is preserved and the card layout accommodates the badge without breaking responsive behavior."
         }
       ]
     }
