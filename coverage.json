@@ -1,35 +1,99 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-03-01T09:31:52.132Z",
+  "generatedAt": "2026-03-02T11:15:40.362Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 2,
-    "implemented": 2,
+    "total": 6,
+    "implemented": 6,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "In the Pricing page (`frontend/src/pages/Pricing.tsx`), move the 'Most Popular for Freelancers' badge/label so it is rendered inside the Starter plan column (e.g., above the plan title or as an inline chip within the card), rather than floating outside or above the column boundary.",
+        "summary": "Add a Login screen with an email input field and a 'Send OTP' button. When clicked, send a POST request to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/otp with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Content-Type\": \"application/json\" } and body { \"email\": \"<emailInput>\", \"create_user\": true }. On success, navigate to the OTP verification screen.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/pages/Pricing.tsx"
+          "frontend/src/pages/Login.tsx",
+          "frontend/src/App.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/Pricing.tsx"
+          "frontend/src/pages/Login.tsx",
+          "frontend/src/App.tsx"
         ]
       },
       {
         "id": "REQ-2",
-        "summary": "In the Pricing page (`frontend/src/pages/Pricing.tsx`), move the 'Best Value' label/badge so it is rendered inside the Pro plan column (e.g., above the plan title or as an inline chip within the card), rather than floating outside or above the column boundary.",
+        "summary": "Add an OTP Verification screen with the email displayed (read-only), a 6-digit OTP input field, and a 'Verify OTP' button. When clicked, send a POST request to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/token?grant_type=otp with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Content-Type\": \"application/json\" } and body { \"email\": \"<emailInput>\", \"token\": \"<otpInput>\", \"type\": \"email\" }. On success, save response.access_token to localStorage as 'supabase_access_token' and response.user.id as 'supabase_user_id', then navigate to the Dashboard.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/pages/Pricing.tsx"
+          "frontend/src/pages/OtpVerification.tsx",
+          "frontend/src/App.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/Pricing.tsx"
+          "frontend/src/pages/OtpVerification.tsx",
+          "frontend/src/App.tsx"
+        ]
+      },
+      {
+        "id": "REQ-3",
+        "summary": "When the Dashboard loads, fetch the authenticated user's plan by sending a GET request to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id>&select=plan with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Authorization\": \"Bearer <supabase_access_token>\" }. Store the result (response[0].plan) in React state as 'currentPlan' and display it in the UI (e.g. badge or label showing the user's current plan).",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/Dashboard.tsx",
+          "frontend/src/App.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/Dashboard.tsx",
+          "frontend/src/App.tsx"
+        ]
+      },
+      {
+        "id": "REQ-4",
+        "summary": "Wire the 'Generate Invoice' button on the Invoice page to call the Supabase Edge Function by sending a POST request to https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/create-invoice with headers { \"Authorization\": \"Bearer <supabase_access_token>\", \"Content-Type\": \"application/json\" } and body { \"invoice_number\": \"INV-<timestamp>\", \"total_amount\": <totalAmount> }. On HTTP 200, show a success message and navigate to the Invoice Preview. On HTTP 403, display the message 'You've reached your free plan limit. Upgrade to continue.' and navigate to the Pricing page.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/Invoice.tsx",
+          "frontend/src/pages/InvoicePreview.tsx",
+          "frontend/src/App.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/Invoice.tsx",
+          "frontend/src/pages/InvoicePreview.tsx",
+          "frontend/src/App.tsx"
+        ]
+      },
+      {
+        "id": "REQ-5",
+        "summary": "On the Pricing page, wire each plan's upgrade button to send a PATCH request to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id> with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Authorization\": \"Bearer <supabase_access_token>\", \"Content-Type\": \"application/json\" } and body { \"plan\": \"<planName>\" } where planName corresponds to the button's plan (e.g. 'pro', 'starter', 'business'). On success, update the local currentPlan state and show a confirmation message.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/Pricing.tsx",
+          "frontend/src/contexts/AuthContext.tsx",
+          "frontend/src/App.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/Pricing.tsx",
+          "frontend/src/contexts/AuthContext.tsx",
+          "frontend/src/App.tsx"
+        ]
+      },
+      {
+        "id": "REQ-6",
+        "summary": "Implement a session guard: if no 'supabase_access_token' or 'supabase_user_id' exists in localStorage when a user tries to access the Dashboard, Invoice, or Pricing pages, redirect them to the Login screen. Add a logout function that clears 'supabase_access_token' and 'supabase_user_id' from localStorage and redirects to the Login screen.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useSupabaseAuth.ts",
+          "frontend/src/components/ProtectedRoute.tsx",
+          "frontend/src/App.tsx",
+          "frontend/src/components/Header.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useSupabaseAuth.ts",
+          "frontend/src/components/ProtectedRoute.tsx",
+          "frontend/src/App.tsx",
+          "frontend/src/components/Header.tsx"
         ]
       }
     ]
@@ -39,6 +103,16 @@
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
+    "frontend/src/App.tsx",
+    "frontend/src/components/Header.tsx",
+    "frontend/src/components/ProtectedRoute.tsx",
+    "frontend/src/contexts/AuthContext.tsx",
+    "frontend/src/hooks/useSupabaseAuth.ts",
+    "frontend/src/pages/Dashboard.tsx",
+    "frontend/src/pages/Invoice.tsx",
+    "frontend/src/pages/InvoicePreview.tsx",
+    "frontend/src/pages/Login.tsx",
+    "frontend/src/pages/OtpVerification.tsx",
     "frontend/src/pages/Pricing.tsx",
     "project_state.json",
     "scratch/component-selection.json",

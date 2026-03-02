@@ -1,30 +1,98 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "App with a Pricing tab featuring multiple plans (Starter, Pro, and others). User is refining the pricing UI layout.",
-  "architectural_notes": [],
+  "summary": "Invoice/billing app with Supabase authentication (email OTP), user plan management, invoice creation via Edge Function, and plan upgrade flow. Uses Supabase backend with anon API key and bearer token auth.",
+  "architectural_notes": [
+    "Supabase project URL: https://cvelhiuefcykduwgnjjs.supabase.co — anon key used for public requests, Bearer token for authenticated requests",
+    "Session storage: supabase_access_token and supabase_user_id saved to local storage after OTP verification; plan is NOT stored in session",
+    "New users auto-provisioned in users table with plan=free via Supabase trigger on auth signup"
+  ],
   "known_issues": [],
-  "isFixRequest": true,
+  "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-in-the-pricing-page-frontend-src-pages-pricing-tsx-move-the-most-popular-for-freelancers-badge-label-so-it-is-rendered-inside-the-starter-plan-column-e-g-above-the-plan-title-or-as-an-inline-chip-within-the-card-rather-than-floating-outside-or-above-the-column-boundary",
-      "title": "In the Pricing page (`frontend/src/pages/Pricing.tsx`), move the 'Most Popular for Freelancers' badge/label so it is rendered inside the Starter plan column (e.g., above the plan title or as an inline chip within the card), rather than floating outside or above the column boundary.",
+      "id": "feature-add-a-login-screen-with-an-email-input-field-and-a-send-otp-button-when-clicked-send-a-post-request-to-https-cvelhiuefcykduwgnjjs-supabase-co-auth-v1-otp-with-headers-apikey-eyjhbgcioijiuzi1niisinr5cci6ikpxvcj9-eyjpc3mioijzdxbhymfzzsisinjlzii6imn2zwxoaxvlzmn5a2r1d2duampziiwicm9szsi6imfub24ilcjpyxqioje3nziyntuznjcsimv4cci6mja4nzgzmtm2n30-dntp6pmmtt8rmzhw-anvatggll6flsuffvcr9jes-rm-content-type-application-json-and-body-email-emailinput-create-user-true-on-success-navigate-to-the-otp-verification-screen",
+      "title": "Add a Login screen with an email input field and a 'Send OTP' button. When clicked, send a POST request to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/otp with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Content-Type\": \"application/json\" } and body { \"email\": \"<emailInput>\", \"create_user\": true }. On success, navigate to the OTP verification screen.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-in-the-pricing-page-frontend-src-pages-pricing-tsx-move-the-best-value-label-badge-so-it-is-rendered-inside-the-pro-plan-column-e-g-above-the-plan-title-or-as-an-inline-chip-within-the-card-rather-than-floating-outside-or-above-the-column-boundary",
-      "title": "In the Pricing page (`frontend/src/pages/Pricing.tsx`), move the 'Best Value' label/badge so it is rendered inside the Pro plan column (e.g., above the plan title or as an inline chip within the card), rather than floating outside or above the column boundary.",
+      "id": "feature-add-an-otp-verification-screen-with-the-email-displayed-read-only-a-6-digit-otp-input-field-and-a-verify-otp-button-when-clicked-send-a-post-request-to-https-cvelhiuefcykduwgnjjs-supabase-co-auth-v1-token-grant-type-otp-with-headers-apikey-eyjhbgcioijiuzi1niisinr5cci6ikpxvcj9-eyjpc3mioijzdxbhymfzzsisinjlzii6imn2zwxoaxvlzmn5a2r1d2duampziiwicm9szsi6imfub24ilcjpyxqioje3nziyntuznjcsimv4cci6mja4nzgzmtm2n30-dntp6pmmtt8rmzhw-anvatggll6flsuffvcr9jes-rm-content-type-application-json-and-body-email-emailinput-token-otpinput-type-email-on-success-save-response-access-token-to-localstorage-as-supabase-access-token-and-response-user-id-as-supabase-user-id-then-navigate-to-the-dashboard",
+      "title": "Add an OTP Verification screen with the email displayed (read-only), a 6-digit OTP input field, and a 'Verify OTP' button. When clicked, send a POST request to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/token?grant_type=otp with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Content-Type\": \"application/json\" } and body { \"email\": \"<emailInput>\", \"token\": \"<otpInput>\", \"type\": \"email\" }. On success, save response.access_token to localStorage as 'supabase_access_token' and response.user.id as 'supabase_user_id', then navigate to the Dashboard.",
       "reqIds": [
         "REQ-2"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-when-the-dashboard-loads-fetch-the-authenticated-user-s-plan-by-sending-a-get-request-to-https-cvelhiuefcykduwgnjjs-supabase-co-rest-v1-users-id-eq-supabase-user-id-select-plan-with-headers-apikey-eyjhbgcioijiuzi1niisinr5cci6ikpxvcj9-eyjpc3mioijzdxbhymfzzsisinjlzii6imn2zwxoaxvlzmn5a2r1d2duampziiwicm9szsi6imfub24ilcjpyxqioje3nziyntuznjcsimv4cci6mja4nzgzmtm2n30-dntp6pmmtt8rmzhw-anvatggll6flsuffvcr9jes-rm-authorization-bearer-supabase-access-token-store-the-result-response-0-plan-in-react-state-as-currentplan-and-display-it-in-the-ui-e-g-badge-or-label-showing-the-user-s-current-plan",
+      "title": "When the Dashboard loads, fetch the authenticated user's plan by sending a GET request to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id>&select=plan with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Authorization\": \"Bearer <supabase_access_token>\" }. Store the result (response[0].plan) in React state as 'currentPlan' and display it in the UI (e.g. badge or label showing the user's current plan).",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-wire-the-generate-invoice-button-on-the-invoice-page-to-call-the-supabase-edge-function-by-sending-a-post-request-to-https-cvelhiuefcykduwgnjjs-supabase-co-functions-v1-create-invoice-with-headers-authorization-bearer-supabase-access-token-content-type-application-json-and-body-invoice-number-inv-timestamp-total-amount-totalamount-on-http-200-show-a-success-message-and-navigate-to-the-invoice-preview-on-http-403-display-the-message-you-ve-reached-your-free-plan-limit-upgrade-to-continue-and-navigate-to-the-pricing-page",
+      "title": "Wire the 'Generate Invoice' button on the Invoice page to call the Supabase Edge Function by sending a POST request to https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/create-invoice with headers { \"Authorization\": \"Bearer <supabase_access_token>\", \"Content-Type\": \"application/json\" } and body { \"invoice_number\": \"INV-<timestamp>\", \"total_amount\": <totalAmount> }. On HTTP 200, show a success message and navigate to the Invoice Preview. On HTTP 403, display the message 'You've reached your free plan limit. Upgrade to continue.' and navigate to the Pricing page.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-on-the-pricing-page-wire-each-plan-s-upgrade-button-to-send-a-patch-request-to-https-cvelhiuefcykduwgnjjs-supabase-co-rest-v1-users-id-eq-supabase-user-id-with-headers-apikey-eyjhbgcioijiuzi1niisinr5cci6ikpxvcj9-eyjpc3mioijzdxbhymfzzsisinjlzii6imn2zwxoaxvlzmn5a2r1d2duampziiwicm9szsi6imfub24ilcjpyxqioje3nziyntuznjcsimv4cci6mja4nzgzmtm2n30-dntp6pmmtt8rmzhw-anvatggll6flsuffvcr9jes-rm-authorization-bearer-supabase-access-token-content-type-application-json-and-body-plan-planname-where-planname-corresponds-to-the-button-s-plan-e-g-pro-starter-business-on-success-update-the-local-currentplan-state-and-show-a-confirmation-message",
+      "title": "On the Pricing page, wire each plan's upgrade button to send a PATCH request to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id> with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Authorization\": \"Bearer <supabase_access_token>\", \"Content-Type\": \"application/json\" } and body { \"plan\": \"<planName>\" } where planName corresponds to the button's plan (e.g. 'pro', 'starter', 'business'). On success, update the local currentPlan state and show a confirmation message.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-session-guard-if-no-supabase-access-token-or-supabase-user-id-exists-in-localstorage-when-a-user-tries-to-access-the-dashboard-invoice-or-pricing-pages-redirect-them-to-the-login-screen-add-a-logout-function-that-clears-supabase-access-token-and-supabase-user-id-from-localstorage-and-redirects-to-the-login-screen",
+      "title": "Implement a session guard: if no 'supabase_access_token' or 'supabase_user_id' exists in localStorage when a user tries to access the Dashboard, Invoice, or Pricing pages, redirect them to the Login screen. Add a logout function that clears 'supabase_access_token' and 'supabase_user_id' from localStorage and redirects to the Login screen.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
     }
   ],
-  "new_feature_requests": [],
-  "projectName": "Fix Pricing Tab Badge Placement — Move Labels Inside Plan Columns",
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Send OTP on login screen via POST to Supabase /auth/v1/otp with email and create_user=true",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Verify OTP screen via POST to Supabase /auth/v1/token?grant_type=otp, save access_token and user_id to local storage",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "On dashboard load, fetch user plan via GET /rest/v1/users filtering by user_id, store as currentPlan for UI display",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Generate Invoice button calls Edge Function /functions/v1/create-invoice; on 200 navigate to Invoice Preview, on 403 show upgrade message and navigate to Pricing Page",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Upgrade button on Pricing Page sends PATCH to /rest/v1/users to update plan field (e.g. plan=pro)",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "Caffeine",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

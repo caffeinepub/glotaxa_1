@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import RegionSelect from './pages/RegionSelect';
@@ -6,8 +6,20 @@ import Transaction from './pages/Transaction';
 import Invoice from './pages/Invoice';
 import ApiDocs from './pages/ApiDocs';
 import Pricing from './pages/Pricing';
+import Login from './pages/Login';
+import OtpVerification from './pages/OtpVerification';
+import Dashboard from './pages/Dashboard';
+import InvoicePreview from './pages/InvoicePreview';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 export type TabName = 'country' | 'transaction' | 'invoice' | 'apidocs' | 'pricing';
+
+export type AppScreen =
+  | 'login'
+  | 'otp'
+  | 'dashboard'
+  | 'main'
+  | 'invoice-preview';
 
 export interface InvoicePrePopData {
   country: string;
@@ -21,10 +33,47 @@ export interface InvoicePrePopData {
   isOSS: boolean;
 }
 
-function App() {
+function AppContent() {
+  const { isAuthenticated, logout } = useAuth();
+
+  const [screen, setScreen] = useState<AppScreen>('login');
+  const [otpEmail, setOtpEmail] = useState('');
   const [activeTab, setActiveTab] = useState<TabName>('country');
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [invoicePrePopData, setInvoicePrePopData] = useState<InvoicePrePopData | null>(null);
+  const [generatedInvoice, setGeneratedInvoice] = useState<{
+    invoiceNumber: string;
+    totalAmount: number;
+    currency: string;
+  } | null>(null);
+
+  // On mount: if already authenticated, go to main app
+  useEffect(() => {
+    const token = localStorage.getItem('supabase_access_token');
+    const uid = localStorage.getItem('supabase_user_id');
+    if (token && uid) {
+      setScreen('main');
+    }
+  }, []);
+
+  const handleOtpSent = (email: string) => {
+    setOtpEmail(email);
+    setScreen('otp');
+  };
+
+  const handleOtpVerified = () => {
+    setScreen('dashboard');
+  };
+
+  const handleSkipLogin = () => {
+    setScreen('main');
+  };
+
+  const handleLogout = () => {
+    logout();
+    setScreen('login');
+    setActiveTab('country');
+  };
 
   const selectCountry = (country: string) => {
     setSelectedCountry(country);
@@ -36,9 +85,91 @@ function App() {
     setActiveTab('invoice');
   };
 
+  const handleInvoiceGenerated = (invoiceNumber: string, totalAmount: number, currency: string) => {
+    setGeneratedInvoice({ invoiceNumber, totalAmount, currency });
+    setScreen('invoice-preview');
+  };
+
+  const handleNavigateFromDashboard = (tab: string) => {
+    if (tab === 'pricing') {
+      setActiveTab('pricing');
+      setScreen('main');
+    } else if (tab === 'invoice') {
+      setActiveTab('invoice');
+      setScreen('main');
+    } else if (tab === 'country') {
+      setActiveTab('country');
+      setScreen('main');
+    } else {
+      setScreen('main');
+    }
+  };
+
+  // ── Auth screens (no header/footer tabs) ──
+  if (screen === 'login') {
+    return <Login onOtpSent={handleOtpSent} onSkip={handleSkipLogin} />;
+  }
+
+  if (screen === 'otp') {
+    return (
+      <OtpVerification
+        email={otpEmail}
+        onVerified={handleOtpVerified}
+        onBack={() => setScreen('login')}
+      />
+    );
+  }
+
+  // ── Dashboard screen ──
+  if (screen === 'dashboard') {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <Header
+          onNavigateDashboard={() => setScreen('dashboard')}
+          onLogout={handleLogout}
+        />
+        <main className="flex-1">
+          <Dashboard
+            onNavigate={handleNavigateFromDashboard}
+            onLogout={handleLogout}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // ── Invoice Preview screen ──
+  if (screen === 'invoice-preview' && generatedInvoice) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <Header
+          onNavigateDashboard={isAuthenticated ? () => setScreen('dashboard') : undefined}
+          onLogout={handleLogout}
+        />
+        <main className="flex-1">
+          <InvoicePreview
+            invoiceNumber={generatedInvoice.invoiceNumber}
+            totalAmount={generatedInvoice.totalAmount}
+            currency={generatedInvoice.currency}
+            setActiveTab={(tab) => {
+              setActiveTab(tab);
+              setScreen('main');
+            }}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // ── Main app (tabbed interface) ──
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <Header />
+      <Header
+        onNavigateDashboard={isAuthenticated ? () => setScreen('dashboard') : undefined}
+        onLogout={handleLogout}
+      />
 
       {/* Tab Navigation */}
       <div className="sticky top-16 z-40 bg-background/95 backdrop-blur border-b border-border">
@@ -85,6 +216,7 @@ function App() {
           <Invoice
             setActiveTab={setActiveTab}
             prePopData={invoicePrePopData}
+            onInvoiceGenerated={handleInvoiceGenerated}
           />
         )}
         {activeTab === 'apidocs' && (
@@ -97,6 +229,14 @@ function App() {
 
       <Footer />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

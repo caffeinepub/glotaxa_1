@@ -1,6 +1,12 @@
-import { Check, Minus, Star, Zap, Trophy, Gift } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Minus, Star, Zap, Trophy, Gift, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '../contexts/AuthContext';
+
+const SUPABASE_URL = 'https://cvelhiuefcykduwgnjjs.supabase.co';
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM';
 
 interface PricingPlan {
   id: string;
@@ -13,7 +19,6 @@ interface PricingPlan {
   limits?: string[];
   highlightTag?: string;
   buttonLabel: string;
-  buttonDisabled?: boolean;
   isPopular?: boolean;
   isBestValue?: boolean;
 }
@@ -41,8 +46,7 @@ const plans: PricingPlan[] = [
       'No bulk invoices',
       'No VAT auto-detection',
     ],
-    buttonLabel: 'Current Plan',
-    buttonDisabled: true,
+    buttonLabel: 'Free Plan',
   },
   {
     id: 'starter',
@@ -106,8 +110,21 @@ const plans: PricingPlan[] = [
   },
 ];
 
-function PlanCard({ plan }: { plan: PricingPlan }) {
+function PlanCard({
+  plan,
+  currentPlan,
+  onUpgrade,
+  isUpgrading,
+  upgradeSuccess,
+}: {
+  plan: PricingPlan;
+  currentPlan: string | null;
+  onUpgrade: (planId: string) => void;
+  isUpgrading: boolean;
+  upgradeSuccess: boolean;
+}) {
   const isHighlighted = plan.isPopular || plan.isBestValue;
+  const isCurrentPlan = (currentPlan ?? 'free').toLowerCase() === plan.id;
 
   return (
     <div
@@ -118,7 +135,7 @@ function PlanCard({ plan }: { plan: PricingPlan }) {
       }`}
     >
       <div className="p-6 pb-4">
-        {/* Inline Highlight Badge — inside the card at the top */}
+        {/* Inline Highlight Badge */}
         {plan.highlightTag && (
           <div className="mb-3">
             <Badge
@@ -149,6 +166,11 @@ function PlanCard({ plan }: { plan: PricingPlan }) {
             {plan.icon}
           </span>
           <h3 className="text-lg font-bold tracking-wide text-foreground">{plan.title}</h3>
+          {isCurrentPlan && (
+            <Badge variant="outline" className="ml-auto text-xs">
+              Current
+            </Badge>
+          )}
         </div>
 
         {/* Price */}
@@ -161,14 +183,33 @@ function PlanCard({ plan }: { plan: PricingPlan }) {
         <p className="text-sm text-muted-foreground mb-5">{plan.description}</p>
 
         {/* CTA Button */}
-        <Button
-          className="w-full"
-          variant={isHighlighted ? 'default' : plan.id === 'free' ? 'outline' : 'outline'}
-          disabled={plan.buttonDisabled}
-          onClick={() => {}}
-        >
-          {plan.buttonLabel}
-        </Button>
+        {isCurrentPlan ? (
+          <Button className="w-full" variant="outline" disabled>
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Current Plan
+          </Button>
+        ) : (
+          <Button
+            className="w-full"
+            variant={isHighlighted ? 'default' : 'outline'}
+            disabled={isUpgrading}
+            onClick={() => onUpgrade(plan.id)}
+          >
+            {isUpgrading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Upgrading…
+              </>
+            ) : upgradeSuccess ? (
+              <>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Upgraded!
+              </>
+            ) : (
+              plan.buttonLabel
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Divider */}
@@ -185,7 +226,6 @@ function PlanCard({ plan }: { plan: PricingPlan }) {
           ))}
         </ul>
 
-        {/* Limits (subtle) */}
         {plan.limits && plan.limits.length > 0 && (
           <div className="mt-5 pt-4 border-t border-border/60">
             <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
@@ -207,6 +247,51 @@ function PlanCard({ plan }: { plan: PricingPlan }) {
 }
 
 export default function Pricing() {
+  const { userId, accessToken, currentPlan, setCurrentPlan, isAuthenticated } = useAuth();
+  const [upgradingPlanId, setUpgradingPlanId] = useState<string | null>(null);
+  const [successPlanId, setSuccessPlanId] = useState<string | null>(null);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+
+  const handleUpgrade = async (planId: string) => {
+    if (!isAuthenticated || !userId || !accessToken) {
+      setUpgradeError('You must be signed in to upgrade your plan.');
+      return;
+    }
+
+    setUpgradingPlanId(planId);
+    setUpgradeError(null);
+    setSuccessPlanId(null);
+
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/users?id=eq.${userId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ plan: planId }),
+        }
+      );
+
+      if (response.ok) {
+        setCurrentPlan(planId);
+        setSuccessPlanId(planId);
+        // Clear success indicator after 3s
+        setTimeout(() => setSuccessPlanId(null), 3000);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setUpgradeError(data?.message || data?.error || 'Failed to upgrade plan. Please try again.');
+      }
+    } catch {
+      setUpgradeError('Network error. Please check your connection and try again.');
+    } finally {
+      setUpgradingPlanId(null);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
       {/* Header */}
@@ -218,12 +303,39 @@ export default function Pricing() {
           Start free and scale as your business grows. All plans include VAT-compliant invoicing
           for UK and EU transactions.
         </p>
+        {!isAuthenticated && (
+          <p className="text-sm text-muted-foreground mt-3 bg-muted/50 inline-block px-4 py-2 rounded-full">
+            Sign in to upgrade your plan
+          </p>
+        )}
       </div>
+
+      {/* Error */}
+      {upgradeError && (
+        <div className="max-w-xl mx-auto mb-6 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3 text-center">
+          {upgradeError}
+        </div>
+      )}
+
+      {/* Success */}
+      {successPlanId && (
+        <div className="max-w-xl mx-auto mb-6 bg-primary/10 border border-primary/30 text-primary text-sm rounded-lg px-4 py-3 text-center flex items-center justify-center gap-2">
+          <CheckCircle className="w-4 h-4" />
+          Plan upgraded to <strong className="capitalize">{successPlanId}</strong> successfully!
+        </div>
+      )}
 
       {/* Pricing Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
         {plans.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} />
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            currentPlan={currentPlan}
+            onUpgrade={handleUpgrade}
+            isUpgrading={upgradingPlanId === plan.id}
+            upgradeSuccess={successPlanId === plan.id}
+          />
         ))}
       </div>
 

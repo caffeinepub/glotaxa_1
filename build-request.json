@@ -1,53 +1,153 @@
 {
   "kind": "build_request",
-  "title": "Fix Pricing Tab Badge Placement — Move Labels Inside Plan Columns",
-  "priority": "normal",
+  "title": "Integrate Supabase OTP Auth, Plan Fetch, Invoice Edge Function & Plan Upgrade",
+  "projectName": "Glotaxa",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "In the Pricing page (`frontend/src/pages/Pricing.tsx`), move the 'Most Popular for Freelancers' badge/label so it is rendered inside the Starter plan column (e.g., above the plan title or as an inline chip within the card), rather than floating outside or above the column boundary.",
+      "text": "Add a Login screen with an email input field and a 'Send OTP' button. When clicked, send a POST request to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/otp with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Content-Type\": \"application/json\" } and body { \"email\": \"<emailInput>\", \"create_user\": true }. On success, navigate to the OTP verification screen.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-7"
         ],
         "quotes": [
-          "ensure the Most Popular for Freelancers is shown inside the column of Starter pack"
+          "PART 1 — SEND OTP (LOGIN SCREEN)",
+          "Button: Send OTP",
+          "POST",
+          "https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/otp"
         ]
       },
       "acceptanceCriteria": [
-        "The 'Most Popular for Freelancers' label/badge is visually contained within the Starter plan card boundaries.",
-        "The badge does not overlap with adjacent plan columns.",
-        "The Starter card layout remains consistent and readable on desktop and mobile viewports."
+        "Login screen is reachable and renders an email input and 'Send OTP' button",
+        "Clicking 'Send OTP' fires a POST to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/otp with the correct headers and body including create_user: true",
+        "On a successful response (2xx), the app navigates to the OTP verification screen",
+        "On error, an appropriate error message is displayed to the user"
       ]
     },
     {
       "id": "REQ-2",
-      "text": "In the Pricing page (`frontend/src/pages/Pricing.tsx`), move the 'Best Value' label/badge so it is rendered inside the Pro plan column (e.g., above the plan title or as an inline chip within the card), rather than floating outside or above the column boundary.",
+      "text": "Add an OTP Verification screen with the email displayed (read-only), a 6-digit OTP input field, and a 'Verify OTP' button. When clicked, send a POST request to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/token?grant_type=otp with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Content-Type\": \"application/json\" } and body { \"email\": \"<emailInput>\", \"token\": \"<otpInput>\", \"type\": \"email\" }. On success, save response.access_token to localStorage as 'supabase_access_token' and response.user.id as 'supabase_user_id', then navigate to the Dashboard.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-7"
         ],
         "quotes": [
-          "The Best value above Pro package also is moved within the column"
+          "PART 2 — VERIFY OTP (OTP SCREEN)",
+          "Button: Verify OTP",
+          "supabase_access_token = response.access_token",
+          "supabase_user_id = response.user.id"
         ]
       },
       "acceptanceCriteria": [
-        "The 'Best Value' label/badge is visually contained within the Pro plan card boundaries.",
-        "The badge does not overlap with adjacent plan columns.",
-        "The Pro card layout remains consistent and readable on desktop and mobile viewports."
+        "OTP screen renders with the user's email shown, an OTP input, and 'Verify OTP' button",
+        "Clicking 'Verify OTP' fires a POST to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/token?grant_type=otp with correct headers and body",
+        "On success: response.access_token is saved to localStorage as 'supabase_access_token' and response.user.id as 'supabase_user_id'",
+        "Plan is NOT stored in localStorage at this step",
+        "On success, the app navigates to the Dashboard",
+        "On error, an appropriate error message is displayed"
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "When the Dashboard loads, fetch the authenticated user's plan by sending a GET request to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id>&select=plan with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Authorization\": \"Bearer <supabase_access_token>\" }. Store the result (response[0].plan) in React state as 'currentPlan' and display it in the UI (e.g. badge or label showing the user's current plan).",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-7"
+        ],
+        "quotes": [
+          "PART 3 — FETCH USER PLAN (DASHBOARD LOAD)",
+          "currentPlan = response[0].plan",
+          "Used only for UI display"
+        ]
+      },
+      "acceptanceCriteria": [
+        "On Dashboard mount, a GET request is fired to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id>&select=plan with the correct apikey and Authorization Bearer headers",
+        "The returned plan value is stored in component/app state as currentPlan",
+        "The current plan is visibly displayed in the Dashboard UI",
+        "If the user is unauthenticated (no token in localStorage), redirect to the Login screen"
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Wire the 'Generate Invoice' button on the Invoice page to call the Supabase Edge Function by sending a POST request to https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/create-invoice with headers { \"Authorization\": \"Bearer <supabase_access_token>\", \"Content-Type\": \"application/json\" } and body { \"invoice_number\": \"INV-<timestamp>\", \"total_amount\": <totalAmount> }. On HTTP 200, show a success message and navigate to the Invoice Preview. On HTTP 403, display the message 'You've reached your free plan limit. Upgrade to continue.' and navigate to the Pricing page.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-7"
+        ],
+        "quotes": [
+          "PART 4 — CREATE INVOICE (EDGE FUNCTION)",
+          "Button: Generate Invoice",
+          "If Status 200",
+          "If Status 403",
+          "You've reached your free plan limit. Upgrade to continue."
+        ]
+      },
+      "acceptanceCriteria": [
+        "Clicking 'Generate Invoice' fires a POST to https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/create-invoice with Authorization Bearer token, invoice_number as INV-<current timestamp>, and totalAmount from form state",
+        "On HTTP 200: a success toast/message is shown and the app navigates to the Invoice Preview",
+        "On HTTP 403: the message 'You've reached your free plan limit. Upgrade to continue.' is shown and the app navigates to the Pricing page",
+        "Other error statuses display a generic error message"
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "text": "On the Pricing page, wire each plan's upgrade button to send a PATCH request to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id> with headers { \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM\", \"Authorization\": \"Bearer <supabase_access_token>\", \"Content-Type\": \"application/json\" } and body { \"plan\": \"<planName>\" } where planName corresponds to the button's plan (e.g. 'pro', 'starter', 'business'). On success, update the local currentPlan state and show a confirmation message.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-7"
+        ],
+        "quotes": [
+          "PART 5 — TEMP PLAN UPGRADE (PRICING PAGE)",
+          "Upgrade Button",
+          "PATCH",
+          "https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.{{supabase_user_id}}"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Each plan's upgrade button on the Pricing page triggers a PATCH to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id> with the correct headers and body { \"plan\": \"<planName>\" }",
+        "On success, the UI reflects the updated plan (currentPlan state is updated)",
+        "A success confirmation message is shown to the user",
+        "On error, an appropriate error message is displayed"
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "text": "Implement a session guard: if no 'supabase_access_token' or 'supabase_user_id' exists in localStorage when a user tries to access the Dashboard, Invoice, or Pricing pages, redirect them to the Login screen. Add a logout function that clears 'supabase_access_token' and 'supabase_user_id' from localStorage and redirects to the Login screen.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-7"
+        ],
+        "quotes": [
+          "SAVE SESSION (MANDATORY)",
+          "supabase_access_token = response.access_token",
+          "supabase_user_id = response.user.id"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Accessing Dashboard, Invoice, or Pricing pages without valid localStorage tokens redirects to the Login screen",
+        "A logout action clears supabase_access_token and supabase_user_id from localStorage and sends the user to the Login screen"
       ]
     }
   ],
   "constraints": [
-    "Do not alter any other pricing plan content, feature lists, or pricing values.",
-    "Do not modify any files under frontend/src/hooks/ or frontend/src/components/ui."
+    "Use the exact Supabase API key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM for all Supabase REST requests",
+    "Use the exact Supabase project URL: https://cvelhiuefcykduwgnjjs.supabase.co",
+    "Do NOT store the user's plan in localStorage — only supabase_access_token and supabase_user_id are stored",
+    "All authenticated requests must use Authorization: Bearer <supabase_access_token>",
+    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui"
   ],
   "nonGoals": [
-    "Adding or removing pricing plans.",
-    "Wiring up upgrade/payment buttons.",
-    "Changing pricing amounts or feature descriptions."
+    "No backend (Motoko) changes are required for this feature set",
+    "No payment processing integration — the plan upgrade is a direct PATCH to Supabase REST only",
+    "No real-time session refresh or JWT expiry handling beyond basic localStorage persistence",
+    "No changes to existing VAT calculation logic or RegionSelect/Transaction pages"
   ],
   "imageRequirements": {
     "required": [],

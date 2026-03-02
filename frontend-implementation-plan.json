@@ -1,37 +1,157 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix Pricing Tab Badge Placement — Move Labels Inside Plan Columns",
+  "title": "Integrate Supabase OTP Auth, Plan Fetch, Invoice Edge Function & Plan Upgrade",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Move the 'Most Popular for Freelancers' badge inside the Starter plan card boundaries",
+      "summary": "Add Login screen with email input and OTP request capability",
       "acceptanceCriteria": [
-        "The 'Most Popular for Freelancers' label/badge is visually contained within the Starter plan card boundaries.",
-        "The badge does not overlap with adjacent plan columns.",
-        "The Starter card layout remains consistent and readable on desktop and mobile viewports."
+        "Login screen is reachable and renders an email input and 'Send OTP' button",
+        "Clicking 'Send OTP' fires a POST to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/otp with the correct headers and body including create_user: true",
+        "On a successful response (2xx), the app navigates to the OTP verification screen",
+        "On error, an appropriate error message is displayed to the user"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/pages/Pricing.tsx",
+          "path": "frontend/src/pages/Login.tsx",
+          "operation": "create",
+          "description": "Create Login page component with email input field and 'Send OTP' button. On submit, POST to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/otp with headers containing apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM and Content-Type: application/json, and body containing email and create_user: true. Navigate to OTP verification on success, display error message on failure."
+        },
+        {
+          "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Relocate the 'Most Popular for Freelancers' badge from its current position (likely above or outside the Starter card) to inside the Starter plan column. Position it as an inline element within the card, such as above the plan title or as a chip component within the card header. Ensure the badge styling (background, padding, text) is preserved and the card layout accommodates the badge without breaking responsive behavior."
+          "description": "Add routing logic to register the Login page route and make it the initial landing route for unauthenticated users. Update the navigation structure to include authentication flow routes."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Move the 'Best Value' badge inside the Pro plan card boundaries",
+      "summary": "Add OTP Verification screen with token verification and session storage",
       "acceptanceCriteria": [
-        "The 'Best Value' label/badge is visually contained within the Pro plan card boundaries.",
-        "The badge does not overlap with adjacent plan columns.",
-        "The Pro card layout remains consistent and readable on desktop and mobile viewports."
+        "OTP screen renders with the user's email shown, an OTP input, and 'Verify OTP' button",
+        "Clicking 'Verify OTP' fires a POST to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/token?grant_type=otp with correct headers and body",
+        "On success: response.access_token is saved to localStorage as 'supabase_access_token' and response.user.id as 'supabase_user_id'",
+        "Plan is NOT stored in localStorage at this step",
+        "On success, the app navigates to the Dashboard",
+        "On error, an appropriate error message is displayed"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/OtpVerification.tsx",
+          "operation": "create",
+          "description": "Create OTP Verification page displaying read-only email (passed via navigation state), 6-digit OTP input field, and 'Verify OTP' button. On submit, POST to https://cvelhiuefcykduwgnjjs.supabase.co/auth/v1/token?grant_type=otp with headers containing apikey and Content-Type, and body with email, token, and type: email. On success, store response.access_token as 'supabase_access_token' and response.user.id as 'supabase_user_id' in localStorage, then navigate to Dashboard. Display error message on failure."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Register the OTP Verification page route and wire navigation from Login to OTP verification screen, passing email as navigation state."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Fetch and display user plan on Dashboard load",
+      "acceptanceCriteria": [
+        "On Dashboard mount, a GET request is fired to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id>&select=plan with the correct apikey and Authorization Bearer headers",
+        "The returned plan value is stored in component/app state as currentPlan",
+        "The current plan is visibly displayed in the Dashboard UI",
+        "If the user is unauthenticated (no token in localStorage), redirect to the Login screen"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Dashboard.tsx",
+          "operation": "create",
+          "description": "Create Dashboard page that on mount reads supabase_user_id and supabase_access_token from localStorage. If missing, redirect to Login. Otherwise, fetch plan by sending GET to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id>&select=plan with headers containing apikey and Authorization: Bearer <supabase_access_token>. Store response[0].plan in local state as currentPlan and display it prominently (badge or label) in the UI."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Register the Dashboard route and ensure it is the target navigation after successful OTP verification. Update tab/navigation structure to include Dashboard as an authenticated route."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Wire 'Generate Invoice' button to call Supabase Edge Function with plan limit handling",
+      "acceptanceCriteria": [
+        "Clicking 'Generate Invoice' fires a POST to https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/create-invoice with Authorization Bearer token, invoice_number as INV-<current timestamp>, and totalAmount from form state",
+        "On HTTP 200: a success toast/message is shown and the app navigates to the Invoice Preview",
+        "On HTTP 403: the message 'You've reached your free plan limit. Upgrade to continue.' is shown and the app navigates to the Pricing page",
+        "Other error statuses display a generic error message"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Invoice.tsx",
+          "operation": "modify",
+          "description": "Modify the 'Generate Invoice' button handler to read supabase_access_token from localStorage and POST to https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/create-invoice with headers Authorization: Bearer <token> and Content-Type: application/json, and body containing invoice_number: INV-<timestamp> and total_amount from form state. On HTTP 200, show success message and navigate to Invoice Preview. On HTTP 403, show 'You've reached your free plan limit. Upgrade to continue.' message and navigate to Pricing page. Handle other errors with generic message."
+        },
+        {
+          "path": "frontend/src/pages/InvoicePreview.tsx",
+          "operation": "create",
+          "description": "Create Invoice Preview page to display the generated invoice details after successful creation via the edge function. Show invoice data and provide actions like download or print."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Register the Invoice Preview route and wire navigation from the Invoice page after successful invoice generation (HTTP 200 response)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "summary": "Wire plan upgrade buttons on Pricing page to update user plan via Supabase REST API",
+      "acceptanceCriteria": [
+        "Each plan's upgrade button on the Pricing page triggers a PATCH to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id> with the correct headers and body { \"plan\": \"<planName>\" }",
+        "On success, the UI reflects the updated plan (currentPlan state is updated)",
+        "A success confirmation message is shown to the user",
+        "On error, an appropriate error message is displayed"
       ],
       "file_operations": [
         {
           "path": "frontend/src/pages/Pricing.tsx",
           "operation": "modify",
-          "description": "Relocate the 'Best Value' label/badge from its current position (likely above or outside the Pro card) to inside the Pro plan column. Position it as an inline element within the card, such as above the plan title or as a chip component within the card header. Ensure the badge styling (background, padding, text) is preserved and the card layout accommodates the badge without breaking responsive behavior."
+          "description": "Wire each plan upgrade button to read supabase_user_id and supabase_access_token from localStorage and send PATCH to https://cvelhiuefcykduwgnjjs.supabase.co/rest/v1/users?id=eq.<supabase_user_id> with headers containing apikey, Authorization: Bearer <token>, and Content-Type: application/json, and body { plan: <planName> } where planName corresponds to the clicked plan. On success, update currentPlan state (or trigger a refetch) and show success confirmation. On error, display error message."
+        },
+        {
+          "path": "frontend/src/contexts/AuthContext.tsx",
+          "operation": "create",
+          "description": "Create AuthContext to manage currentPlan state globally across authenticated pages (Dashboard, Pricing). Provide updatePlan function to be called after successful plan upgrade, avoiding the need to refetch or prop-drill the plan state."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Wrap authenticated routes with AuthContext.Provider so that currentPlan state and updatePlan are accessible in Dashboard and Pricing pages."
+        }
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "summary": "Implement session guard and logout functionality",
+      "acceptanceCriteria": [
+        "Accessing Dashboard, Invoice, or Pricing pages without valid localStorage tokens redirects to the Login screen",
+        "A logout action clears supabase_access_token and supabase_user_id from localStorage and sends the user to the Login screen"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useSupabaseAuth.ts",
+          "operation": "create",
+          "description": "Create custom hook useSupabaseAuth that checks for supabase_access_token and supabase_user_id in localStorage. Return isAuthenticated boolean and a logout function that clears both tokens from localStorage and redirects to Login. This hook will be used by protected routes."
+        },
+        {
+          "path": "frontend/src/components/ProtectedRoute.tsx",
+          "operation": "create",
+          "description": "Create ProtectedRoute wrapper component that uses useSupabaseAuth to check authentication status. If not authenticated, redirect to Login. Otherwise, render children (the protected page component)."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Wrap Dashboard, Invoice, and Pricing routes with ProtectedRoute component to enforce authentication checks. Ensure unauthenticated users are redirected to Login before accessing these pages."
+        },
+        {
+          "path": "frontend/src/components/Header.tsx",
+          "operation": "modify",
+          "description": "Add a logout button or link in the Header component (visible only when authenticated) that calls the logout function from useSupabaseAuth, clearing session tokens and redirecting to Login."
         }
       ]
     }
