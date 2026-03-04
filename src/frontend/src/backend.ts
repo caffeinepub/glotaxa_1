@@ -90,9 +90,114 @@ export class ExternalBlob {
     }
 }
 export interface backendInterface {
+    addApiKey(apiKey: string): Promise<boolean>;
+    addOwner(newOwner: Principal): Promise<boolean>;
+    checkApiKey(apiKey: string): Promise<boolean>;
+    listVatRates(): Promise<Array<[bigint, number]>>;
+    payVat(amount: number, vatKey: bigint): Promise<number>;
+    removeApiKey(apiKey: string): Promise<boolean>;
+    upsertVat(key: bigint, rate: number): Promise<boolean>;
 }
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async addApiKey(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addApiKey(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addApiKey(arg0);
+            return result;
+        }
+    }
+    async addOwner(arg0: Principal): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addOwner(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addOwner(arg0);
+            return result;
+        }
+    }
+    async checkApiKey(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.checkApiKey(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.checkApiKey(arg0);
+            return result;
+        }
+    }
+    async listVatRates(): Promise<Array<[bigint, number]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listVatRates();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listVatRates();
+            return result;
+        }
+    }
+    async payVat(arg0: number, arg1: bigint): Promise<number> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.payVat(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.payVat(arg0, arg1);
+            return result;
+        }
+    }
+    async removeApiKey(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.removeApiKey(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.removeApiKey(arg0);
+            return result;
+        }
+    }
+    async upsertVat(arg0: bigint, arg1: number): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.upsertVat(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.upsertVat(arg0, arg1);
+            return result;
+        }
+    }
 }
 export interface CreateActorOptions {
     agent?: Agent;

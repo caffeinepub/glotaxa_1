@@ -3,7 +3,7 @@
 export interface InvoiceHeader {
   invoiceNumber: string;
   invoiceDate: string;
-  invoiceType: 'Invoice' | 'Credit Note';
+  invoiceType: "Invoice" | "Credit Note";
 }
 
 export interface SellerDetails {

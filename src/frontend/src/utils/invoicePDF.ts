@@ -1,10 +1,23 @@
-import type { Invoice16931 } from '../types/invoice';
+import type { Invoice16931 } from "../types/invoice";
 
 export function downloadInvoicePDF(invoice: Invoice16931): void {
-  const { header, seller, buyer, lineItems, taxDetails, subtotal, grandTotal, currency, paymentTerms } = invoice;
+  const {
+    header,
+    seller,
+    buyer,
+    lineItems,
+    taxDetails,
+    subtotal,
+    grandTotal,
+    currency,
+    paymentTerms,
+  } = invoice;
 
   // Calculate total VAT
-  const totalVAT = Object.values(taxDetails).reduce((sum, amount) => sum + amount, 0);
+  const totalVAT = Object.values(taxDetails).reduce(
+    (sum, amount) => sum + amount,
+    0,
+  );
 
   // Generate line items HTML
   const lineItemsHTML = lineItems
@@ -18,9 +31,9 @@ export function downloadInvoicePDF(invoice: Invoice16931): void {
       <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${currency} ${item.unitPrice.toFixed(2)}</td>
       <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${currency} ${item.amount.toFixed(2)}</td>
       <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${item.vatRate}%</td>
-    </tr>`
+    </tr>`,
     )
-    .join('');
+    .join("");
 
   // Generate VAT breakdown HTML
   const vatBreakdownHTML = Object.entries(taxDetails)
@@ -29,9 +42,9 @@ export function downloadInvoicePDF(invoice: Invoice16931): void {
     <tr>
       <td style="padding: 8px; border-bottom: 1px solid #ddd;">VAT ${rate}%</td>
       <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${currency} ${amount.toFixed(2)}</td>
-    </tr>`
+    </tr>`,
     )
-    .join('');
+    .join("");
 
   const invoiceHTML = `
     <!DOCTYPE html>
@@ -129,7 +142,7 @@ export function downloadInvoicePDF(invoice: Invoice16931): void {
     </head>
     <body>
       <div class="invoice-header">
-        <div class="invoice-title">${header.invoiceType === 'Invoice' ? 'INVOICE' : 'CREDIT NOTE'}</div>
+        <div class="invoice-title">${header.invoiceType === "Invoice" ? "INVOICE" : "CREDIT NOTE"}</div>
         <div style="font-size: 14px; color: #666;">
           Invoice No: <strong>${escapeHTML(header.invoiceNumber)}</strong> | 
           Date: <strong>${header.invoiceDate}</strong>
@@ -145,7 +158,7 @@ export function downloadInvoicePDF(invoice: Invoice16931): void {
           </div>
           <div style="margin-bottom: 10px;">
             <div class="info-label">Address</div>
-            <div class="info-value">${escapeHTML(seller.address).replace(/\n/g, '<br>')}</div>
+            <div class="info-value">${escapeHTML(seller.address).replace(/\n/g, "<br>")}</div>
           </div>
           <div style="margin-bottom: 10px;">
             <div class="info-label">VAT Number</div>
@@ -169,7 +182,7 @@ export function downloadInvoicePDF(invoice: Invoice16931): void {
           </div>
           <div style="margin-bottom: 10px;">
             <div class="info-label">Address</div>
-            <div class="info-value">${escapeHTML(buyer.address).replace(/\n/g, '<br>')}</div>
+            <div class="info-value">${escapeHTML(buyer.address).replace(/\n/g, "<br>")}</div>
           </div>
           <div style="margin-bottom: 10px;">
             <div class="info-label">Tax ID / Business Reg. Number</div>
@@ -266,7 +279,7 @@ export function downloadInvoicePDF(invoice: Invoice16931): void {
     </html>
   `;
 
-  const printWindow = window.open('', '_blank');
+  const printWindow = window.open("", "_blank");
   if (printWindow) {
     printWindow.document.write(invoiceHTML);
     printWindow.document.close();
@@ -275,9 +288,9 @@ export function downloadInvoicePDF(invoice: Invoice16931): void {
 
 function escapeHTML(str: string): string {
   return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }

@@ -1,101 +1,256 @@
-import { useState } from 'react';
-import { Header } from './components/Header';
-import { Footer } from './components/Footer';
-import { LandingPage } from './pages/LandingPage';
-import { RegionSelect } from './pages/RegionSelect';
-import { Transaction } from './pages/Transaction';
-import { Invoice } from './pages/Invoice';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { CountryCode } from './data/vatRules';
-import type { InvoiceLineItem } from './types/invoice';
+import { useEffect, useState } from "react";
+import { Footer } from "./components/Footer";
+import { Header } from "./components/Header";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import ApiDocs from "./pages/ApiDocs";
+import Dashboard from "./pages/Dashboard";
+import Invoice from "./pages/Invoice";
+import InvoicePreview from "./pages/InvoicePreview";
+import Login from "./pages/Login";
+import OtpVerification from "./pages/OtpVerification";
+import Pricing from "./pages/Pricing";
+import RegionSelect from "./pages/RegionSelect";
+import Transaction from "./pages/Transaction";
 
-interface CalculationResult {
+export type TabName =
+  | "country"
+  | "transaction"
+  | "invoice"
+  | "apidocs"
+  | "pricing";
+
+export type AppScreen =
+  | "login"
+  | "otp"
+  | "dashboard"
+  | "main"
+  | "invoice-preview";
+
+export interface InvoicePrePopData {
+  country: string;
   vatRate: number;
   vatType: string;
+  netAmount: number;
+  grossAmount: number;
   vatAmount: number;
-  total: number;
-}
-
-interface InvoiceData {
-  country: CountryCode;
+  buyerType: string;
   category: string;
-  amount: number;
-  result: CalculationResult;
-  initialLineItem?: InvoiceLineItem;
+  isOSS: boolean;
 }
 
-function App() {
-  const [showCalculator, setShowCalculator] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState<CountryCode | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('country');
-  const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
+function AppContent() {
+  const { isAuthenticated, logout } = useAuth();
 
-  const handleStartApp = () => {
-    setShowCalculator(true);
+  const [screen, setScreen] = useState<AppScreen>("login");
+  const [otpEmail, setOtpEmail] = useState("");
+  const [activeTab, setActiveTab] = useState<TabName>("country");
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [invoicePrePopData, setInvoicePrePopData] =
+    useState<InvoicePrePopData | null>(null);
+  const [generatedInvoice, setGeneratedInvoice] = useState<{
+    invoiceNumber: string;
+    totalAmount: number;
+    currency: string;
+  } | null>(null);
+
+  // On mount: if already authenticated, go to main app
+  useEffect(() => {
+    const token = localStorage.getItem("supabase_access_token");
+    const uid = localStorage.getItem("supabase_user_id");
+    if (token && uid) {
+      setScreen("main");
+    }
+  }, []);
+
+  const handleOtpSent = (email: string) => {
+    setOtpEmail(email);
+    setScreen("otp");
   };
 
-  const handleSelectCountry = (country: CountryCode) => {
+  const handleOtpVerified = () => {
+    setScreen("dashboard");
+  };
+
+  const handleSkipLogin = () => {
+    setScreen("main");
+  };
+
+  const handleLogout = () => {
+    logout();
+    setScreen("login");
+    setActiveTab("country");
+  };
+
+  const selectCountry = (country: string) => {
     setSelectedCountry(country);
-    setActiveTab('transaction');
+    setActiveTab("transaction");
   };
 
-  const handleGoToInvoice = (result: CalculationResult, amount: number, category: string, initialLineItem: InvoiceLineItem) => {
-    if (selectedCountry) {
-      setInvoiceData({
-        country: selectedCountry,
-        category,
-        amount,
-        result,
-        initialLineItem,
-      });
-      setActiveTab('invoice');
+  const handleGenerateInvoice = (data: InvoicePrePopData) => {
+    setInvoicePrePopData(data);
+    setActiveTab("invoice");
+  };
+
+  const handleInvoiceGenerated = (
+    invoiceNumber: string,
+    totalAmount: number,
+    currency: string,
+  ) => {
+    setGeneratedInvoice({ invoiceNumber, totalAmount, currency });
+    setScreen("invoice-preview");
+  };
+
+  const handleNavigateFromDashboard = (tab: string) => {
+    if (tab === "pricing") {
+      setActiveTab("pricing");
+      setScreen("main");
+    } else if (tab === "invoice") {
+      setActiveTab("invoice");
+      setScreen("main");
+    } else if (tab === "country") {
+      setActiveTab("country");
+      setScreen("main");
+    } else {
+      setScreen("main");
     }
   };
 
-  if (!showCalculator) {
+  // ── Auth screens (no header/footer tabs) ──
+  if (screen === "login") {
+    return <Login onOtpSent={handleOtpSent} onSkip={handleSkipLogin} />;
+  }
+
+  if (screen === "otp") {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
+      <OtpVerification
+        email={otpEmail}
+        onVerified={handleOtpVerified}
+        onBack={() => setScreen("login")}
+      />
+    );
+  }
+
+  // ── Dashboard screen ──
+  if (screen === "dashboard") {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <Header
+          onNavigateDashboard={() => setScreen("dashboard")}
+          onLogout={handleLogout}
+        />
         <main className="flex-1">
-          <LandingPage startApp={handleStartApp} />
+          <Dashboard
+            onNavigate={handleNavigateFromDashboard}
+            onLogout={handleLogout}
+          />
         </main>
         <Footer />
       </div>
     );
   }
 
+  // ── Invoice Preview screen ──
+  if (screen === "invoice-preview" && generatedInvoice) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <Header
+          onNavigateDashboard={
+            isAuthenticated ? () => setScreen("dashboard") : undefined
+          }
+          onLogout={handleLogout}
+        />
+        <main className="flex-1">
+          <InvoicePreview
+            invoiceNumber={generatedInvoice.invoiceNumber}
+            totalAmount={generatedInvoice.totalAmount}
+            currency={generatedInvoice.currency}
+            setActiveTab={(tab) => {
+              setActiveTab(tab);
+              setScreen("main");
+            }}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // ── Main app (tabbed interface) ──
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1 container mx-auto px-4 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
-            <TabsTrigger value="country">Country Selection</TabsTrigger>
-            <TabsTrigger value="transaction" disabled={!selectedCountry}>
-              Transaction
-            </TabsTrigger>
-            <TabsTrigger value="invoice" disabled={!invoiceData}>
-              Invoice
-            </TabsTrigger>
-          </TabsList>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <Header
+        onNavigateDashboard={
+          isAuthenticated ? () => setScreen("dashboard") : undefined
+        }
+        onLogout={handleLogout}
+      />
 
-          <TabsContent value="country">
-            <RegionSelect selectCountry={handleSelectCountry} />
-          </TabsContent>
+      {/* Tab Navigation */}
+      <div className="sticky top-16 z-40 bg-background/95 backdrop-blur border-b border-border">
+        <div className="max-w-7xl mx-auto px-4">
+          <nav
+            className="flex gap-1 py-2 overflow-x-auto"
+            aria-label="Main navigation"
+          >
+            {[
+              { id: "country", label: "1. Select Region" },
+              { id: "transaction", label: "2. Transaction" },
+              { id: "invoice", label: "3. Invoice" },
+              { id: "apidocs", label: "4. API Docs" },
+              { id: "pricing", label: "5. Pricing" },
+            ].map((tab) => (
+              <button
+                type="button"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as TabName)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
 
-          <TabsContent value="transaction">
-            {selectedCountry && (
-              <Transaction country={selectedCountry} goToInvoice={handleGoToInvoice} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="invoice">
-            {invoiceData && <Invoice data={invoiceData} initialLineItem={invoiceData.initialLineItem} />}
-          </TabsContent>
-        </Tabs>
+      <main className="flex-1">
+        {activeTab === "country" && (
+          <RegionSelect
+            selectCountry={selectCountry}
+            setActiveTab={setActiveTab}
+          />
+        )}
+        {activeTab === "transaction" && (
+          <Transaction
+            selectedCountry={selectedCountry}
+            setActiveTab={setActiveTab}
+            onGenerateInvoice={handleGenerateInvoice}
+          />
+        )}
+        {activeTab === "invoice" && (
+          <Invoice
+            setActiveTab={setActiveTab}
+            prePopData={invoicePrePopData}
+            onInvoiceGenerated={handleInvoiceGenerated}
+          />
+        )}
+        {activeTab === "apidocs" && <ApiDocs setActiveTab={setActiveTab} />}
+        {activeTab === "pricing" && <Pricing />}
       </main>
+
       <Footer />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

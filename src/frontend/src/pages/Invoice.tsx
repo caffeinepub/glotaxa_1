@@ -1,558 +1,940 @@
-import { useState, useEffect, useMemo } from 'react';
-import { downloadInvoicePDF } from '../utils/invoicePDF';
-import { downloadInvoiceXML } from '../utils/invoiceXML';
-import type { CountryCode } from '../data/vatRules';
-import { VAT_RULES } from '../data/vatRules';
-import type { Invoice16931, InvoiceLineItem } from '../types/invoice';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, AlertCircle, Plus, Trash2, FileText } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Download,
+  FileCode,
+  FileText,
+  Loader2,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import type { InvoicePrePopData, TabName } from "../App";
+import { useAuth } from "../contexts/AuthContext";
+import { VAT_RULES } from "../data/vatRules";
+import type { CountryCode } from "../data/vatRules";
+import type { Invoice16931, InvoiceLineItem } from "../types/invoice";
+import { downloadInvoicePDF } from "../utils/invoicePDF";
+import { downloadInvoiceXML } from "../utils/invoiceXML";
 
-interface InvoiceData {
-  country: CountryCode;
-  category: string;
-  amount: number;
-  result: {
-    vatRate: number;
-    vatType: string;
-    vatAmount: number;
-    total: number;
-  };
-}
+const SUPABASE_URL = "https://cvelhiuefcykduwgnjjs.supabase.co";
 
 interface InvoiceProps {
-  data: InvoiceData;
-  initialLineItem?: InvoiceLineItem;
+  setActiveTab: (tab: TabName) => void;
+  prePopData: InvoicePrePopData | null;
+  onInvoiceGenerated?: (
+    invoiceNumber: string,
+    totalAmount: number,
+    currency: string,
+  ) => void;
 }
 
-let invoiceCount = 0;
+interface LocalLineItem {
+  id: string;
+  description: string;
+  itemType: string;
+  netAmount: number;
+  vatCategory: string;
+  vatRate: number;
+}
 
-export function Invoice({ data, initialLineItem }: InvoiceProps) {
-  const [error, setError] = useState<string>("");
-  
-  // Generate invoice number
-  const [invoiceNumber, setInvoiceNumber] = useState<string>(() => {
-    const date = new Date();
-    return `INV-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
-  });
-  
-  const [invoiceDate, setInvoiceDate] = useState<string>(() => {
-    const date = new Date();
-    return date.toISOString().split('T')[0];
-  });
-  
-  const [invoiceType, setInvoiceType] = useState<'Invoice' | 'Credit Note'>('Invoice');
-  
+const MAX_LINE_ITEMS = 3;
+
+const ITEM_TYPES = ["Goods", "Services", "Digital Services", "Mixed"];
+const VAT_CATEGORIES_LIST = [
+  "Others",
+  "Basic Food",
+  "Books",
+  "Medical",
+  "Transport",
+  "Hotel",
+  "Financial Services",
+  "Insurance",
+  "Education",
+  "Exports",
+  "Intra-EU B2B",
+];
+const CURRENCIES = ["EUR", "GBP", "SEK", "PLN", "HUF"];
+
+const COUNTRY_NAMES: Record<string, string> = Object.fromEntries(
+  Object.entries(VAT_RULES).map(([code, rule]) => [code, rule.name]),
+);
+
+function generateInvoiceNumber() {
+  const now = new Date();
+  return `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${Math.floor(Math.random() * 9000) + 1000}`;
+}
+
+function getVatRateForCategory(
+  vatCategory: string,
+  country: CountryCode,
+): number {
+  const rules = VAT_RULES[country];
+  if (!rules) return 0;
+
+  if (country === "GB") {
+    if (vatCategory === "Intra-EU B2B") return 0;
+    if (vatCategory === "Transport") return 20;
+    if (rules.categoryRates && vatCategory in rules.categoryRates) {
+      return rules.categoryRates[vatCategory].rate;
+    }
+    return rules.standard;
+  }
+
+  switch (vatCategory) {
+    case "Financial Services":
+    case "Insurance":
+    case "Education":
+      return 0;
+    case "Exports":
+    case "Intra-EU B2B":
+      return 0;
+    case "Basic Food":
+    case "Books":
+    case "Medical":
+    case "Transport":
+    case "Hotel":
+      return rules.reduced ?? rules.standard;
+    default:
+      return rules.standard;
+  }
+}
+
+export default function Invoice({
+  setActiveTab,
+  prePopData,
+  onInvoiceGenerated,
+}: InvoiceProps) {
+  const today = new Date().toISOString().split("T")[0];
+  const dueDateDefault = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
+  const { accessToken, isAuthenticated } = useAuth();
+
+  const [invoiceNumber, setInvoiceNumber] = useState(generateInvoiceNumber());
+  const [invoiceDate, setInvoiceDate] = useState(today);
+  const [dueDate, setDueDate] = useState(dueDateDefault);
+
   // Seller details
-  const [sellerName, setSellerName] = useState<string>('Your Company Name');
-  const [sellerAddress, setSellerAddress] = useState<string>('123 Business Street\nCity, Postal Code\nCountry');
-  const [sellerVAT, setSellerVAT] = useState<string>('VAT123456789');
-  const [sellerEmail, setSellerEmail] = useState<string>('info@yourcompany.com');
-  const [sellerPhone, setSellerPhone] = useState<string>('+1234567890');
-  
+  const [sellerName, setSellerName] = useState("");
+  const [sellerAddress, setSellerAddress] = useState("");
+  const [sellerVatNumber, setSellerVatNumber] = useState("");
+  const [sellerEmail, setSellerEmail] = useState("");
+  const [sellerPhone, setSellerPhone] = useState("");
+  const [sellerCountry, setSellerCountry] = useState<CountryCode>("DE");
+
   // Buyer details
-  const [buyerName, setBuyerName] = useState<string>('Customer Name');
-  const [buyerAddress, setBuyerAddress] = useState<string>('456 Customer Avenue\nCity, Postal Code\nCountry');
-  const [buyerTaxId, setBuyerTaxId] = useState<string>('TAX987654321');
-  const [buyerContractNumber, setBuyerContractNumber] = useState<string>('');
-  
-  // Line items - initialize with transaction data if provided
-  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(() => {
-    if (initialLineItem) {
-      return [initialLineItem];
-    }
-    return [{
-      itemType: data.category,
-      description: `${data.category} service`,
-      quantity: 1,
-      unitPrice: data.amount,
-      amount: data.amount,
-      vatRate: data.result.vatRate,
-    }];
-  });
-  
-  // Payment terms
-  const [paymentDueDate, setPaymentDueDate] = useState<string>(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 30);
-    return date.toISOString().split('T')[0];
-  });
-  const [paymentMeans, setPaymentMeans] = useState<string>('Bank Transfer');
-  const [iban, setIban] = useState<string>('GB00BANK00000000000000');
-  const [earlyPaymentDiscount, setEarlyPaymentDiscount] = useState<string>('2% if paid within 10 days');
-  const [latePenaltyTerms, setLatePenaltyTerms] = useState<string>('1.5% per month on overdue amounts');
-  
-  const currency = 'EUR';
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerAddress, setBuyerAddress] = useState("");
+  const [buyerTaxId, setBuyerTaxId] = useState("");
+  const [buyerContractNumber, setBuyerContractNumber] = useState("");
 
-  // Calculate totals
-  const { subtotal, taxDetails, grandTotal } = useMemo(() => {
-    const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
-    
-    const taxDetails: { [vatRate: string]: number } = {};
-    lineItems.forEach(item => {
-      const vatAmount = (item.amount * item.vatRate) / 100;
-      const rateKey = item.vatRate.toString();
-      taxDetails[rateKey] = (taxDetails[rateKey] || 0) + vatAmount;
-    });
-    
-    const totalVAT = Object.values(taxDetails).reduce((sum, amount) => sum + amount, 0);
-    const grandTotal = subtotal + totalVAT;
-    
-    return { subtotal, taxDetails, grandTotal };
-  }, [lineItems]);
+  // Line items
+  const [lineItems, setLineItems] = useState<LocalLineItem[]>([
+    {
+      id: "1",
+      description: "Professional Services",
+      itemType: "Services",
+      netAmount: 1000,
+      vatCategory: "Others",
+      vatRate: 20,
+    },
+  ]);
 
-  // Update line item amount when quantity or unit price changes
-  const updateLineItem = (index: number, field: keyof InvoiceLineItem, value: string | number) => {
-    const newLineItems = [...lineItems];
-    newLineItems[index] = { ...newLineItems[index], [field]: value };
-    
-    // Recalculate amount if quantity or unit price changed
-    if (field === 'quantity' || field === 'unitPrice') {
-      newLineItems[index].amount = newLineItems[index].quantity * newLineItems[index].unitPrice;
+  const [currency, setCurrency] = useState("EUR");
+  const [paymentMeans, setPaymentMeans] = useState("Bank Transfer");
+  const [iban, setIban] = useState("");
+  const [earlyPaymentDiscount, setEarlyPaymentDiscount] = useState(
+    "2% if paid within 10 days",
+  );
+  const [latePenaltyTerms, setLatePenaltyTerms] = useState(
+    "1.5% per month on overdue amounts",
+  );
+  const [notes, setNotes] = useState("");
+
+  // Generate Invoice via edge function
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateSuccess, setGenerateSuccess] = useState(false);
+
+  const atLineItemLimit = lineItems.length >= MAX_LINE_ITEMS;
+
+  // Pre-populate from transaction data
+  useEffect(() => {
+    if (!prePopData) return;
+
+    setSellerCountry((prePopData.country as CountryCode) || "DE");
+
+    const descriptionMap: Record<string, string> = {
+      Others: "Professional Services",
+      "Basic Food": "Food & Beverages Supply",
+      Books: "Books & Publications",
+      Medical: "Medical Supplies",
+      Transport: "Transport Services",
+      Hotel: "Hotel & Accommodation",
+      "Financial Services": "Financial Services",
+      Insurance: "Insurance Services",
+      Education: "Educational Services",
+      Exports: "Export of Goods",
+      "Intra-EU B2B": "Intra-EU B2B Supply",
+    };
+
+    const itemTypeMap: Record<string, string> = {
+      Others: "Services",
+      "Basic Food": "Goods",
+      Books: "Goods",
+      Medical: "Goods",
+      Transport: "Services",
+      Hotel: "Services",
+      "Financial Services": "Services",
+      Insurance: "Services",
+      Education: "Services",
+      Exports: "Goods",
+      "Intra-EU B2B": "Goods",
+    };
+
+    setLineItems([
+      {
+        id: "1",
+        description: descriptionMap[prePopData.category] || prePopData.category,
+        itemType: itemTypeMap[prePopData.category] || "Services",
+        netAmount: prePopData.netAmount,
+        vatCategory: prePopData.category,
+        vatRate: prePopData.vatRate,
+      },
+    ]);
+
+    const currencyMap: Record<string, string> = {
+      GB: "GBP",
+      SE: "SEK",
+      PL: "PLN",
+      HU: "HUF",
+    };
+    setCurrency(currencyMap[prePopData.country] || "EUR");
+
+    if (prePopData.vatType === "Reverse Charge") {
+      setNotes(
+        "VAT reverse charge applies. The recipient is liable for the VAT amount under Article 196 of the EU VAT Directive.",
+      );
     }
-    
-    setLineItems(newLineItems);
+  }, [prePopData]);
+
+  const updateLineItem = (
+    id: string,
+    field: keyof LocalLineItem,
+    value: string | number,
+  ) => {
+    setLineItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const updated = { ...item, [field]: value };
+        if (field === "vatCategory") {
+          updated.vatRate = getVatRateForCategory(
+            value as string,
+            sellerCountry,
+          );
+        }
+        return updated;
+      }),
+    );
   };
 
   const addLineItem = () => {
-    setLineItems([
-      ...lineItems,
+    if (atLineItemLimit) return;
+    setLineItems((prev) => [
+      ...prev,
       {
-        itemType: 'Service',
-        description: '',
-        quantity: 1,
-        unitPrice: 0,
-        amount: 0,
-        vatRate: data.result.vatRate,
+        id: String(Date.now()),
+        description: "",
+        itemType: "Services",
+        netAmount: 0,
+        vatCategory: "Others",
+        vatRate: getVatRateForCategory("Others", sellerCountry),
       },
     ]);
   };
 
-  const removeLineItem = (index: number) => {
-    if (lineItems.length > 1) {
-      setLineItems(lineItems.filter((_, i) => i !== index));
-    }
+  const removeLineItem = (id: string) => {
+    setLineItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const buildInvoice = (): Invoice16931 => {
+  // Totals
+  const totalNet = useMemo(
+    () => lineItems.reduce((sum, item) => sum + item.netAmount, 0),
+    [lineItems],
+  );
+  const vatBreakdown = useMemo(
+    () =>
+      lineItems.reduce<
+        Record<string, { rate: number; base: number; vat: number }>
+      >((acc, item) => {
+        const key = `${item.vatRate}`;
+        if (!acc[key]) acc[key] = { rate: item.vatRate, base: 0, vat: 0 };
+        acc[key].base += item.netAmount;
+        acc[key].vat += item.netAmount * (item.vatRate / 100);
+        return acc;
+      }, {}),
+    [lineItems],
+  );
+  const totalVat = useMemo(
+    () => Object.values(vatBreakdown).reduce((sum, v) => sum + v.vat, 0),
+    [vatBreakdown],
+  );
+  const totalGross = totalNet + totalVat;
+
+  // Build Invoice16931 for export
+  const buildInvoice16931 = (): Invoice16931 => {
+    const cleanLineItems: InvoiceLineItem[] = lineItems.map((item) => ({
+      itemType: item.itemType,
+      description: item.description || "Item",
+      quantity: 1,
+      unitPrice: item.netAmount,
+      amount: item.netAmount,
+      vatRate: item.vatRate,
+    }));
+
+    const taxDetails: { [vatRate: string]: number } = {};
+    for (const [rate, v] of Object.entries(vatBreakdown)) {
+      taxDetails[rate] = v.vat;
+    }
+
     return {
-      header: {
-        invoiceNumber,
-        invoiceDate,
-        invoiceType,
-      },
+      header: { invoiceNumber, invoiceDate, invoiceType: "Invoice" },
       seller: {
-        name: sellerName,
-        address: sellerAddress,
-        vatNumber: sellerVAT,
-        email: sellerEmail,
-        phone: sellerPhone,
+        name: sellerName || "Seller",
+        address: sellerAddress || "",
+        vatNumber: sellerVatNumber || "",
+        email: sellerEmail || "",
+        phone: sellerPhone || "",
       },
       buyer: {
-        name: buyerName,
-        address: buyerAddress,
-        taxIdOrBusinessRegNumber: buyerTaxId,
-        publicContractNumber: buyerContractNumber,
+        name: buyerName || "Buyer",
+        address: buyerAddress || "",
+        taxIdOrBusinessRegNumber: buyerTaxId || "",
+        publicContractNumber: buyerContractNumber || "",
       },
-      lineItems,
+      lineItems: cleanLineItems,
       taxDetails,
-      subtotal,
-      grandTotal,
+      subtotal: totalNet,
+      grandTotal: totalGross,
       currency,
       paymentTerms: {
-        paymentDueDate,
+        paymentDueDate: dueDate,
         paymentMeans,
-        bankingInfo: { iban },
+        bankingInfo: { iban: iban || "N/A" },
         earlyPaymentDiscount,
         latePenaltyTerms,
       },
     };
   };
 
-  const downloadPDF = () => {
-    if (invoiceCount >= 10) {
-      setError("Free limit reached (10 invoices)");
+  const handleDownloadPDF = () => downloadInvoicePDF(buildInvoice16931());
+  const handleDownloadXML = () => downloadInvoiceXML(buildInvoice16931());
+
+  // Generate Invoice via Supabase Edge Function
+  const handleGenerateInvoice = async () => {
+    if (!isAuthenticated || !accessToken) {
+      setGenerateError(
+        "You must be signed in to generate invoices via the cloud. Use PDF/XML export instead.",
+      );
       return;
     }
 
-    invoiceCount++;
-    const invoice = buildInvoice();
-    downloadInvoicePDF(invoice);
-    setError("");
-  };
+    setIsGenerating(true);
+    setGenerateError(null);
+    setGenerateSuccess(false);
 
-  const downloadXML = () => {
-    if (invoiceCount >= 10) {
-      setError("Free limit reached (10 invoices)");
-      return;
+    const timestamp = Date.now();
+    const edgeInvoiceNumber = `INV-${timestamp}`;
+
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/create-invoice`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            invoice_number: edgeInvoiceNumber,
+            total_amount: totalGross,
+          }),
+        },
+      );
+
+      if (response.status === 200 || response.ok) {
+        setGenerateSuccess(true);
+        if (onInvoiceGenerated) {
+          onInvoiceGenerated(edgeInvoiceNumber, totalGross, currency);
+        }
+      } else if (response.status === 403) {
+        setGenerateError(
+          "You've reached your free plan limit. Upgrade to continue.",
+        );
+        // Navigate to pricing after short delay
+        setTimeout(() => setActiveTab("pricing"), 2000);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setGenerateError(
+          data?.message ||
+            data?.error ||
+            "Failed to generate invoice. Please try again.",
+        );
+      }
+    } catch {
+      setGenerateError(
+        "Network error. Please check your connection and try again.",
+      );
+    } finally {
+      setIsGenerating(false);
     }
-
-    invoiceCount++;
-    const invoice = buildInvoice();
-    downloadInvoiceXML(invoice);
-    setError("");
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold mb-2">EN 16931 Compliant Invoice</h2>
-        <p className="text-muted-foreground">European standard for electronic invoicing</p>
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      {/* Back Button */}
+      <div className="mb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setActiveTab("transaction")}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Transaction
+        </Button>
       </div>
 
-      <div className="grid gap-6">
-        {/* Header Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Invoice Header</CardTitle>
-            <CardDescription>Basic invoice information</CardDescription>
-          </CardHeader>
-          <CardContent className="grid md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="invoiceNumber">Invoice Number</Label>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
+            EN 16931 Compliant Invoice
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Generate EU/UK compliant electronic invoices
+            {prePopData && (
+              <span className="ml-2 inline-flex items-center gap-1 text-primary font-medium">
+                <FileText className="w-3 h-3" />
+                Pre-populated from transaction
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadXML}
+            className="flex items-center gap-2"
+          >
+            <FileCode className="w-4 h-4" />
+            XML
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            PDF
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {/* Invoice Header */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-base font-semibold text-foreground mb-4">
+            Invoice Details
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <p className="block text-xs font-medium text-muted-foreground mb-1">
+                Invoice Number
+              </p>
               <Input
-                id="invoiceNumber"
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="invoiceDate">Invoice Date</Label>
+            <div>
+              <p className="block text-xs font-medium text-muted-foreground mb-1">
+                Invoice Date
+              </p>
               <Input
-                id="invoiceDate"
                 type="date"
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="invoiceType">Type of Invoice</Label>
-              <Select value={invoiceType} onValueChange={(value) => setInvoiceType(value as 'Invoice' | 'Credit Note')}>
-                <SelectTrigger id="invoiceType">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Invoice">Invoice</SelectItem>
-                  <SelectItem value="Credit Note">Credit Note</SelectItem>
-                </SelectContent>
-              </Select>
+            <div>
+              <p className="block text-xs font-medium text-muted-foreground mb-1">
+                Due Date
+              </p>
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Seller and Buyer Details */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Seller Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="sellerName">Seller's Name</Label>
+        {/* Seller & Buyer */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Seller */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="text-base font-semibold text-foreground mb-4">
+              Seller (Supplier)
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Company Name
+                </p>
                 <Input
-                  id="sellerName"
                   value={sellerName}
                   onChange={(e) => setSellerName(e.target.value)}
+                  placeholder="Your Company Ltd"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="sellerAddress">Address</Label>
-                <Textarea
-                  id="sellerAddress"
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Address
+                </p>
+                <Input
                   value={sellerAddress}
                   onChange={(e) => setSellerAddress(e.target.value)}
-                  rows={3}
+                  placeholder="123 Business St, City"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="sellerVAT">VAT Number</Label>
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  VAT Number
+                </p>
                 <Input
-                  id="sellerVAT"
-                  value={sellerVAT}
-                  onChange={(e) => setSellerVAT(e.target.value)}
+                  value={sellerVatNumber}
+                  onChange={(e) => setSellerVatNumber(e.target.value)}
+                  placeholder="GB123456789"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="sellerEmail">Email</Label>
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Email
+                </p>
                 <Input
-                  id="sellerEmail"
-                  type="email"
                   value={sellerEmail}
                   onChange={(e) => setSellerEmail(e.target.value)}
+                  placeholder="billing@company.com"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="sellerPhone">Phone</Label>
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Phone
+                </p>
                 <Input
-                  id="sellerPhone"
-                  type="tel"
                   value={sellerPhone}
                   onChange={(e) => setSellerPhone(e.target.value)}
+                  placeholder="+44 123 456789"
                 />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Country
+                </p>
+                <select
+                  value={sellerCountry}
+                  onChange={(e) => {
+                    const newCountry = e.target.value as CountryCode;
+                    setSellerCountry(newCountry);
+                    setLineItems((prev) =>
+                      prev.map((item) => ({
+                        ...item,
+                        vatRate: getVatRateForCategory(
+                          item.vatCategory,
+                          newCountry,
+                        ),
+                      })),
+                    );
+                  }}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {Object.entries(COUNTRY_NAMES).map(([code, name]) => (
+                    <option key={code} value={code}>
+                      {name} ({code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Buyer Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="buyerName">Buyer Name</Label>
+          {/* Buyer */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="text-base font-semibold text-foreground mb-4">
+              Buyer (Customer)
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Company Name
+                </p>
                 <Input
-                  id="buyerName"
                   value={buyerName}
                   onChange={(e) => setBuyerName(e.target.value)}
+                  placeholder="Customer Company Ltd"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="buyerAddress">Address</Label>
-                <Textarea
-                  id="buyerAddress"
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Address
+                </p>
+                <Input
                   value={buyerAddress}
                   onChange={(e) => setBuyerAddress(e.target.value)}
-                  rows={3}
+                  placeholder="456 Customer Ave, City"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="buyerTaxId">Tax ID / Business Registration Number</Label>
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Tax ID / VAT ID
+                </p>
                 <Input
-                  id="buyerTaxId"
                   value={buyerTaxId}
                   onChange={(e) => setBuyerTaxId(e.target.value)}
+                  placeholder="FR987654321"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="buyerContractNumber">Public Contract Number</Label>
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Contract No. (optional)
+                </p>
                 <Input
-                  id="buyerContractNumber"
                   value={buyerContractNumber}
                   onChange={(e) => setBuyerContractNumber(e.target.value)}
-                  placeholder="Optional"
+                  placeholder="CONTRACT-001"
                 />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         {/* Line Items */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Invoice Line Items</CardTitle>
-            <CardDescription>Add products or services</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2 text-sm font-medium">Item Type</th>
-                    <th className="text-left p-2 text-sm font-medium">Description</th>
-                    <th className="text-right p-2 text-sm font-medium w-24">Quantity</th>
-                    <th className="text-right p-2 text-sm font-medium w-28">Unit Price</th>
-                    <th className="text-right p-2 text-sm font-medium w-28">Amount</th>
-                    <th className="text-right p-2 text-sm font-medium w-24">VAT Rate</th>
-                    <th className="w-12"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lineItems.map((item, index) => (
-                    <tr key={index} className="border-b">
-                      <td className="p-2">
-                        <Input
-                          value={item.itemType}
-                          onChange={(e) => updateLineItem(index, 'itemType', e.target.value)}
-                          className="min-w-[120px]"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <Input
-                          value={item.description}
-                          onChange={(e) => updateLineItem(index, 'description', e.target.value)}
-                          className="min-w-[200px]"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <Input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                          className="text-right"
-                          min="0"
-                          step="0.01"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <Input
-                          type="number"
-                          value={item.unitPrice}
-                          onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                          className="text-right"
-                          min="0"
-                          step="0.01"
-                        />
-                      </td>
-                      <td className="p-2 text-right font-medium">
-                        {currency} {item.amount.toFixed(2)}
-                      </td>
-                      <td className="p-2">
-                        <Input
-                          type="number"
-                          value={item.vatRate}
-                          onChange={(e) => updateLineItem(index, 'vatRate', parseFloat(e.target.value) || 0)}
-                          className="text-right"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeLineItem(index)}
-                          disabled={lineItems.length === 1}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-semibold text-foreground">
+                Line Items
+              </h2>
+              <span className="text-xs text-muted-foreground">
+                {lineItems.length} / {MAX_LINE_ITEMS}
+              </span>
+              {atLineItemLimit && (
+                <span className="text-xs text-warning font-medium bg-warning/10 px-2 py-0.5 rounded-full">
+                  Maximum reached
+                </span>
+              )}
             </div>
-            <Button onClick={addLineItem} variant="outline" size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Line Item
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addLineItem}
+              disabled={atLineItemLimit}
+              className="flex items-center gap-2"
+              title={
+                atLineItemLimit
+                  ? `Maximum of ${MAX_LINE_ITEMS} line items allowed per invoice`
+                  : "Add a new line item"
+              }
+            >
+              <Plus className="w-4 h-4" />
+              Add Item
             </Button>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Tax Details and Totals */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tax Details & Totals</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 max-w-md ml-auto">
-              <div className="flex justify-between py-2 border-b">
-                <span className="text-muted-foreground">Subtotal (Net Amount before Tax):</span>
-                <span className="font-medium">{currency} {subtotal.toFixed(2)}</span>
-              </div>
-              {Object.entries(taxDetails).map(([rate, amount]) => (
-                <div key={rate} className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">VAT {rate}%:</span>
-                  <span className="font-medium">{currency} {amount.toFixed(2)}</span>
-                </div>
-              ))}
-              <div className="flex justify-between py-3 text-lg font-bold bg-muted/50 px-4 rounded-lg">
-                <span>Grand Total (Gross Amount Payable):</span>
-                <span>{currency} {grandTotal.toFixed(2)}</span>
-              </div>
-              <div className="text-sm text-muted-foreground pt-2">
-                Currency: <strong>{currency}</strong>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-muted-foreground">
+                    Description
+                  </th>
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-muted-foreground">
+                    Type
+                  </th>
+                  <th className="text-right py-2 pr-3 text-xs font-medium text-muted-foreground">
+                    Net Amount
+                  </th>
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-muted-foreground">
+                    VAT Category
+                  </th>
+                  <th className="text-right py-2 pr-3 text-xs font-medium text-muted-foreground">
+                    VAT Rate
+                  </th>
+                  <th className="text-right py-2 text-xs font-medium text-muted-foreground">
+                    VAT Amount
+                  </th>
+                  <th className="py-2 w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="border-b border-border/50 last:border-0"
+                  >
+                    <td className="py-3 pr-3">
+                      <Input
+                        value={item.description}
+                        onChange={(e) =>
+                          updateLineItem(item.id, "description", e.target.value)
+                        }
+                        placeholder="Item description"
+                        className="h-8 text-xs"
+                      />
+                    </td>
+                    <td className="py-3 pr-3">
+                      <select
+                        value={item.itemType}
+                        onChange={(e) =>
+                          updateLineItem(item.id, "itemType", e.target.value)
+                        }
+                        className="h-8 px-2 bg-background border border-border rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        {ITEM_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-3 pr-3">
+                      <Input
+                        type="number"
+                        value={item.netAmount}
+                        onChange={(e) =>
+                          updateLineItem(
+                            item.id,
+                            "netAmount",
+                            Number.parseFloat(e.target.value) || 0,
+                          )
+                        }
+                        className="h-8 text-xs text-right w-28"
+                        min="0"
+                        step="0.01"
+                      />
+                    </td>
+                    <td className="py-3 pr-3">
+                      <select
+                        value={item.vatCategory}
+                        onChange={(e) =>
+                          updateLineItem(item.id, "vatCategory", e.target.value)
+                        }
+                        className="h-8 px-2 bg-background border border-border rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        {VAT_CATEGORIES_LIST.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-3 pr-3 text-right">
+                      <span className="text-xs font-medium text-foreground">
+                        {item.vatRate}%
+                      </span>
+                    </td>
+                    <td className="py-3 pr-3 text-right">
+                      <span className="text-xs text-muted-foreground">
+                        {((item.netAmount * item.vatRate) / 100).toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="py-3">
+                      <button
+                        type="button"
+                        onClick={() => removeLineItem(item.id)}
+                        disabled={lineItems.length === 1}
+                        className="p-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-        {/* Payment Terms */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Payment Terms</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="paymentDueDate">Payment Due Date</Label>
-                <Input
-                  id="paymentDueDate"
-                  type="date"
-                  value={paymentDueDate}
-                  onChange={(e) => setPaymentDueDate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="paymentMeans">Payment Means</Label>
-                <Input
-                  id="paymentMeans"
-                  value={paymentMeans}
-                  onChange={(e) => setPaymentMeans(e.target.value)}
-                />
-              </div>
+        {/* Currency & Payment */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-base font-semibold text-foreground mb-4">
+            Payment Details
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <p className="block text-xs font-medium text-muted-foreground mb-1">
+                Currency
+              </p>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="iban">Banking Information (IBAN)</Label>
+            <div>
+              <p className="block text-xs font-medium text-muted-foreground mb-1">
+                Payment Method
+              </p>
               <Input
-                id="iban"
-                value={iban}
-                onChange={(e) => setIban(e.target.value)}
+                value={paymentMeans}
+                onChange={(e) => setPaymentMeans(e.target.value)}
+                placeholder="Bank Transfer"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="earlyPaymentDiscount">Early Payment Discount</Label>
+            <div>
+              <p className="block text-xs font-medium text-muted-foreground mb-1">
+                IBAN
+              </p>
               <Input
-                id="earlyPaymentDiscount"
+                value={iban}
+                onChange={(e) => setIban(e.target.value)}
+                placeholder="GB29 NWBK 6016 1331 9268 19"
+              />
+            </div>
+            <div>
+              <p className="block text-xs font-medium text-muted-foreground mb-1">
+                Early Payment Discount
+              </p>
+              <Input
                 value={earlyPaymentDiscount}
                 onChange={(e) => setEarlyPaymentDiscount(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="latePenaltyTerms">Late Payment Penalty Terms</Label>
+            <div className="sm:col-span-2">
+              <p className="block text-xs font-medium text-muted-foreground mb-1">
+                Late Penalty Terms
+              </p>
               <Input
-                id="latePenaltyTerms"
                 value={latePenaltyTerms}
                 onChange={(e) => setLatePenaltyTerms(e.target.value)}
               />
             </div>
-          </CardContent>
-        </Card>
+            <div className="sm:col-span-2">
+              <p className="block text-xs font-medium text-muted-foreground mb-1">
+                Notes
+              </p>
+              <Input
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Additional notes or reverse charge statement"
+              />
+            </div>
+          </div>
+        </div>
 
-        {/* Download Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Download Invoice</CardTitle>
-            <CardDescription>Export in EN 16931 compliant formats</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <Button 
-                onClick={downloadPDF} 
-                size="lg"
-                disabled={invoiceCount >= 10}
+        {/* Totals */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-base font-semibold text-foreground mb-4">
+            Invoice Totals
+          </h2>
+          <div className="space-y-2 max-w-xs ml-auto">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Net Total</span>
+              <span className="font-medium">
+                {currency} {totalNet.toFixed(2)}
+              </span>
+            </div>
+            {Object.values(vatBreakdown).map((v) => (
+              <div key={v.rate} className="flex justify-between text-sm">
+                <span className="text-muted-foreground">VAT ({v.rate}%)</span>
+                <span className="font-medium">
+                  {currency} {v.vat.toFixed(2)}
+                </span>
+              </div>
+            ))}
+            <div className="flex justify-between text-base font-bold border-t border-border pt-2 mt-2">
+              <span>Total (incl. VAT)</span>
+              <span>
+                {currency} {totalGross.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* UK VAT Reference Panel */}
+        {sellerCountry === "GB" && (
+          <div className="bg-muted/40 border border-border rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
+              UK VAT Reference
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-muted-foreground">
+              <span>Standard Rate: 20%</span>
+              <span>Reduced Rate: 5%</span>
+              <span>Zero Rate: 0%</span>
+              <span>Basic Food: 0%</span>
+              <span>Medical: 0%</span>
+              <span>Education: 0%</span>
+              <span>Exports: 0%</span>
+              <span>Financial Services: Exempt</span>
+              <span>Insurance: Exempt</span>
+            </div>
+          </div>
+        )}
+
+        {/* Generate Invoice via Edge Function */}
+        {isAuthenticated && (
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">
+                  Generate Invoice (Cloud)
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Save your invoice to the cloud via your Glotaxa account.
+                </p>
+              </div>
+              <Button
+                onClick={handleGenerateInvoice}
+                disabled={isGenerating}
+                className="shrink-0"
               >
-                <Download className="w-4 h-4 mr-2" />
-                Download PDF
-              </Button>
-              <Button 
-                onClick={downloadXML} 
-                size="lg"
-                variant="outline"
-                disabled={invoiceCount >= 10}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Download XML (UBL 2.1)
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating…
+                  </>
+                ) : (
+                  "Generate Invoice"
+                )}
               </Button>
             </div>
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+            {generateError && (
+              <div className="mt-4 flex items-start gap-2 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{generateError}</span>
+              </div>
             )}
 
-            <p className="text-xs text-center text-muted-foreground">
-              Free users can download up to 10 invoices (combined PDF + XML). {10 - invoiceCount} downloads remaining.
-            </p>
-          </CardContent>
-        </Card>
+            {generateSuccess && (
+              <div className="mt-4 bg-primary/10 border border-primary/30 text-primary text-sm rounded-lg px-4 py-3">
+                ✓ Invoice generated successfully! Navigating to preview…
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

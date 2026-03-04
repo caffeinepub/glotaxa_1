@@ -8,10 +8,32 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
-export const idlService = IDL.Service({});
+export const idlService = IDL.Service({
+  'addApiKey' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'addOwner' : IDL.Func([IDL.Principal], [IDL.Bool], []),
+  'checkApiKey' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'listVatRates' : IDL.Func([], [IDL.Vec(IDL.Tuple(IDL.Nat, IDL.Float64))], []),
+  'payVat' : IDL.Func([IDL.Float64, IDL.Nat], [IDL.Float64], []),
+  'removeApiKey' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'upsertVat' : IDL.Func([IDL.Nat, IDL.Float64], [IDL.Bool], []),
+});
 
 export const idlInitArgs = [];
 
-export const idlFactory = ({ IDL }) => { return IDL.Service({}); };
+export const idlFactory = ({ IDL }) => {
+  return IDL.Service({
+    'addApiKey' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'addOwner' : IDL.Func([IDL.Principal], [IDL.Bool], []),
+    'checkApiKey' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'listVatRates' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Tuple(IDL.Nat, IDL.Float64))],
+        [],
+      ),
+    'payVat' : IDL.Func([IDL.Float64, IDL.Nat], [IDL.Float64], []),
+    'removeApiKey' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'upsertVat' : IDL.Func([IDL.Nat, IDL.Float64], [IDL.Bool], []),
+  });
+};
 
 export const init = ({ IDL }) => { return []; };

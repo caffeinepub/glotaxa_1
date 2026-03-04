@@ -1,16 +1,30 @@
-import type { Invoice16931 } from '../types/invoice';
+import type { Invoice16931 } from "../types/invoice";
 
 export function generateInvoiceXML(invoice: Invoice16931): string {
-  const { header, seller, buyer, lineItems, taxDetails, subtotal, grandTotal, currency, paymentTerms } = invoice;
+  const {
+    header,
+    seller,
+    buyer,
+    lineItems,
+    taxDetails,
+    subtotal,
+    grandTotal,
+    currency,
+    paymentTerms,
+  } = invoice;
 
   // Calculate total VAT amount
-  const totalVATAmount = Object.values(taxDetails).reduce((sum, amount) => sum + amount, 0);
+  const totalVATAmount = Object.values(taxDetails).reduce(
+    (sum, amount) => sum + amount,
+    0,
+  );
 
   // Generate tax subtotals grouped by VAT rate
   const taxSubtotals = Object.entries(taxDetails)
-    .map(([rate, amount]) => `
+    .map(
+      ([rate, amount]) => `
     <cac:TaxSubtotal>
-      <cbc:TaxableAmount currencyID="${currency}">${(subtotal * parseFloat(rate) / 100).toFixed(2)}</cbc:TaxableAmount>
+      <cbc:TaxableAmount currencyID="${currency}">${((subtotal * Number.parseFloat(rate)) / 100).toFixed(2)}</cbc:TaxableAmount>
       <cbc:TaxAmount currencyID="${currency}">${amount.toFixed(2)}</cbc:TaxAmount>
       <cac:TaxCategory>
         <cbc:ID>S</cbc:ID>
@@ -19,12 +33,14 @@ export function generateInvoiceXML(invoice: Invoice16931): string {
           <cbc:ID>VAT</cbc:ID>
         </cac:TaxScheme>
       </cac:TaxCategory>
-    </cac:TaxSubtotal>`)
-    .join('');
+    </cac:TaxSubtotal>`,
+    )
+    .join("");
 
   // Generate invoice lines
   const invoiceLines = lineItems
-    .map((item, index) => `
+    .map(
+      (item, index) => `
   <cac:InvoiceLine>
     <cbc:ID>${index + 1}</cbc:ID>
     <cbc:InvoicedQuantity unitCode="C62">${item.quantity}</cbc:InvoicedQuantity>
@@ -43,8 +59,9 @@ export function generateInvoiceXML(invoice: Invoice16931): string {
     <cac:Price>
       <cbc:PriceAmount currencyID="${currency}">${item.unitPrice.toFixed(2)}</cbc:PriceAmount>
     </cac:Price>
-  </cac:InvoiceLine>`)
-    .join('');
+  </cac:InvoiceLine>`,
+    )
+    .join("");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
@@ -54,7 +71,7 @@ export function generateInvoiceXML(invoice: Invoice16931): string {
   <cbc:ID>${escapeXML(header.invoiceNumber)}</cbc:ID>
   <cbc:IssueDate>${header.invoiceDate}</cbc:IssueDate>
   <cbc:DueDate>${paymentTerms.paymentDueDate}</cbc:DueDate>
-  <cbc:InvoiceTypeCode>${header.invoiceType === 'Invoice' ? '380' : '381'}</cbc:InvoiceTypeCode>
+  <cbc:InvoiceTypeCode>${header.invoiceType === "Invoice" ? "380" : "381"}</cbc:InvoiceTypeCode>
   <cbc:DocumentCurrencyCode>${currency}</cbc:DocumentCurrencyCode>
   <cac:AccountingSupplierParty>
     <cac:Party>
@@ -115,24 +132,24 @@ export function generateInvoiceXML(invoice: Invoice16931): string {
 
 function escapeXML(str: string): string {
   return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 export function downloadInvoiceXML(invoice: Invoice16931): void {
   const xmlString = generateInvoiceXML(invoice);
-  const blob = new Blob([xmlString], { type: 'application/xml' });
+  const blob = new Blob([xmlString], { type: "application/xml" });
   const url = URL.createObjectURL(blob);
-  
-  const link = document.createElement('a');
+
+  const link = document.createElement("a");
   link.href = url;
   link.download = `invoice-${invoice.header.invoiceNumber}.xml`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  
+
   URL.revokeObjectURL(url);
 }
