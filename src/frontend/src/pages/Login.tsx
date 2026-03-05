@@ -4,19 +4,20 @@ import { Label } from "@/components/ui/label";
 import { ArrowRight, Calculator, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
 
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../contexts/AuthContext";
+import { supabase } from "../contexts/AuthContext";
 
 interface LoginProps {
-  onOtpSent: (email: string) => void;
+  onMagicLinkSent: () => void;
   onSkip: () => void;
 }
 
-export default function Login({ onOtpSent, onSkip }: LoginProps) {
+export default function Login({ onMagicLinkSent, onSkip }: LoginProps) {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleSendMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
       setError("Please enter your email address.");
@@ -26,31 +27,20 @@ export default function Login({ onOtpSent, onSkip }: LoginProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      const { error: authError } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: "https://finvra-zet.caffeine.xyz/",
         },
-        body: JSON.stringify({
-          email: email.trim(),
-          create_user: true,
-          // type=email forces Supabase to send a numeric OTP code,
-          // not a magic link
-          type: "email",
-        }),
       });
 
-      if (response.ok) {
-        onOtpSent(email.trim());
-      } else {
-        const body = await response.json().catch(() => ({}));
+      if (authError) {
         setError(
-          (body as { msg?: string; message?: string }).msg ||
-            (body as { msg?: string; message?: string }).message ||
-            "Failed to send OTP. Please try again.",
+          authError.message || "Failed to send login link. Please try again.",
         );
+      } else {
+        setSent(true);
+        onMagicLinkSent();
       }
     } catch {
       setError("Network error. Please check your connection and try again.");
@@ -77,53 +67,83 @@ export default function Login({ onOtpSent, onSkip }: LoginProps) {
 
         {/* Card */}
         <div className="bg-card border border-border rounded-2xl p-8 shadow-sm">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-foreground">
-              Sign in to your account
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Enter your email and we'll send you a one-time code.
-            </p>
-          </div>
-
-          <form onSubmit={handleSendOtp} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-9"
-                  autoComplete="email"
-                  disabled={isLoading}
-                />
+          {sent ? (
+            <div className="text-center space-y-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mx-auto">
+                <Mail className="w-6 h-6 text-primary" />
               </div>
+              <h2 className="text-xl font-semibold text-foreground">
+                Check your email
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                We sent a magic login link to{" "}
+                <span className="font-medium text-foreground">{email}</span>.
+                Click the link to sign in — no code needed.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Didn't receive it? Check your spam folder.
+              </p>
             </div>
-
-            {error && (
-              <div className="bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3">
-                {error}
+          ) : (
+            <>
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Sign in to your account
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Enter your email and we'll send you a magic login link.
+                </p>
               </div>
-            )}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending OTP…
-                </>
-              ) : (
-                <>
-                  Send OTP
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </>
-              )}
-            </Button>
-          </form>
+              <form onSubmit={handleSendMagicLink} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Email address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      data-ocid="login.input"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-9"
+                      autoComplete="email"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div
+                    data-ocid="login.error_state"
+                    className="bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3"
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  data-ocid="login.primary_button"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending link…
+                    </>
+                  ) : (
+                    <>
+                      Send Magic Link
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            </>
+          )}
 
           <div className="mt-6 pt-5 border-t border-border text-center">
             <p className="text-xs text-muted-foreground mb-3">
@@ -132,6 +152,7 @@ export default function Login({ onOtpSent, onSkip }: LoginProps) {
             <Button
               variant="ghost"
               size="sm"
+              data-ocid="login.secondary_button"
               onClick={onSkip}
               className="text-muted-foreground"
             >

@@ -7,7 +7,6 @@ import Dashboard from "./pages/Dashboard";
 import Invoice from "./pages/Invoice";
 import InvoicePreview from "./pages/InvoicePreview";
 import Login from "./pages/Login";
-import OtpVerification from "./pages/OtpVerification";
 import Pricing from "./pages/Pricing";
 import RegionSelect from "./pages/RegionSelect";
 import Transaction from "./pages/Transaction";
@@ -21,7 +20,7 @@ export type TabName =
 
 export type AppScreen =
   | "login"
-  | "otp"
+  | "magic-link-sent"
   | "dashboard"
   | "main"
   | "invoice-preview";
@@ -39,10 +38,9 @@ export interface InvoicePrePopData {
 }
 
 function AppContent({ sessionSignal }: { sessionSignal: number }) {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, sessionChecked } = useAuth();
 
   const [screen, setScreen] = useState<AppScreen>("login");
-  const [otpEmail, setOtpEmail] = useState("");
   const [activeTab, setActiveTab] = useState<TabName>("country");
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [invoicePrePopData, setInvoicePrePopData] =
@@ -53,15 +51,6 @@ function AppContent({ sessionSignal }: { sessionSignal: number }) {
     currency: string;
   } | null>(null);
 
-  // On mount: if already authenticated, go to dashboard
-  useEffect(() => {
-    const token = localStorage.getItem("supabase_access_token");
-    const uid = localStorage.getItem("supabase_user_id");
-    if (token && uid) {
-      setScreen("dashboard");
-    }
-  }, []);
-
   // When AuthProvider detects a session (redirect / auth-state change), go to dashboard
   useEffect(() => {
     if (sessionSignal > 0) {
@@ -69,13 +58,13 @@ function AppContent({ sessionSignal }: { sessionSignal: number }) {
     }
   }, [sessionSignal]);
 
-  const handleOtpSent = (email: string) => {
-    setOtpEmail(email);
-    setScreen("otp");
-  };
+  // Hide everything until the session check completes (prevents flash of login screen)
+  if (!sessionChecked) {
+    return null;
+  }
 
-  const handleOtpVerified = () => {
-    setScreen("dashboard");
+  const handleMagicLinkSent = () => {
+    setScreen("magic-link-sent");
   };
 
   const handleSkipLogin = () => {
@@ -123,17 +112,9 @@ function AppContent({ sessionSignal }: { sessionSignal: number }) {
   };
 
   // ── Auth screens (no header/footer tabs) ──
-  if (screen === "login") {
-    return <Login onOtpSent={handleOtpSent} onSkip={handleSkipLogin} />;
-  }
-
-  if (screen === "otp") {
+  if (screen === "login" || screen === "magic-link-sent") {
     return (
-      <OtpVerification
-        email={otpEmail}
-        onVerified={handleOtpVerified}
-        onBack={() => setScreen("login")}
-      />
+      <Login onMagicLinkSent={handleMagicLinkSent} onSkip={handleSkipLogin} />
     );
   }
 
