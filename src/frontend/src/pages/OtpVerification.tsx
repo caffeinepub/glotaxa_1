@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Calculator, Loader2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { supabase } from "../lib/supabaseClient";
+
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../contexts/AuthContext";
 
 interface OtpVerificationProps {
   email: string;
@@ -36,28 +37,45 @@ export default function OtpVerification({
     setIsLoading(true);
 
     try {
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: "email",
-      });
+      const response = await fetch(
+        `${SUPABASE_URL}/auth/v1/token?grant_type=otp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            email,
+            token: otp,
+            type: "email",
+          }),
+        },
+      );
 
-      if (verifyError) {
-        setError(
-          verifyError.message || "Invalid or expired code. Please try again.",
-        );
-      } else if (data.session) {
+      if (response.ok) {
+        const data = await response.json();
         // Save session — only token and user id, NOT plan
-        localStorage.setItem(
-          "supabase_access_token",
-          data.session.access_token,
-        );
-        localStorage.setItem("supabase_user_id", data.session.user?.id ?? "");
+        localStorage.setItem("supabase_access_token", data.access_token ?? "");
+        localStorage.setItem("supabase_user_id", data.user?.id ?? "");
         // Reset plan so dashboard fetches fresh
         setCurrentPlan(null as unknown as string);
         onVerified();
       } else {
-        setError("Verification failed. Please try again.");
+        const body = await response.json().catch(() => ({}));
+        setError(
+          (
+            body as {
+              msg?: string;
+              message?: string;
+              error_description?: string;
+            }
+          ).error_description ||
+            (body as { msg?: string; message?: string }).msg ||
+            (body as { msg?: string; message?: string }).message ||
+            "Invalid or expired code. Please try again.",
+        );
       }
     } catch {
       setError("Network error. Please check your connection and try again.");

@@ -3,7 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight, Calculator, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../contexts/AuthContext";
 
 interface LoginProps {
   onOtpSent: (email: string) => void;
@@ -25,17 +26,31 @@ export default function Login({ onOtpSent, onSkip }: LoginProps) {
     setIsLoading(true);
 
     try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          emailRedirectTo: "https://finvra-zet.caffeine.xyz",
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         },
+        body: JSON.stringify({
+          email: email.trim(),
+          create_user: true,
+          // type=email forces Supabase to send a numeric OTP code,
+          // not a magic link
+          type: "email",
+        }),
       });
 
-      if (otpError) {
-        setError(otpError.message || "Failed to send OTP. Please try again.");
-      } else {
+      if (response.ok) {
         onOtpSent(email.trim());
+      } else {
+        const body = await response.json().catch(() => ({}));
+        setError(
+          (body as { msg?: string; message?: string }).msg ||
+            (body as { msg?: string; message?: string }).message ||
+            "Failed to send OTP. Please try again.",
+        );
       }
     } catch {
       setError("Network error. Please check your connection and try again.");

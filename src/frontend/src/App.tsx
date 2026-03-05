@@ -38,7 +38,7 @@ export interface InvoicePrePopData {
   isOSS: boolean;
 }
 
-function AppContent() {
+function AppContent({ sessionSignal }: { sessionSignal: number }) {
   const { isAuthenticated, logout } = useAuth();
 
   const [screen, setScreen] = useState<AppScreen>("login");
@@ -53,14 +53,21 @@ function AppContent() {
     currency: string;
   } | null>(null);
 
-  // On mount: if already authenticated, go to main app
+  // On mount: if already authenticated, go to dashboard
   useEffect(() => {
     const token = localStorage.getItem("supabase_access_token");
     const uid = localStorage.getItem("supabase_user_id");
     if (token && uid) {
-      setScreen("main");
+      setScreen("dashboard");
     }
   }, []);
+
+  // When AuthProvider detects a session (redirect / auth-state change), go to dashboard
+  useEffect(() => {
+    if (sessionSignal > 0) {
+      setScreen("dashboard");
+    }
+  }, [sessionSignal]);
 
   const handleOtpSent = (email: string) => {
     setOtpEmail(email);
@@ -247,9 +254,13 @@ function AppContent() {
 }
 
 function App() {
+  // We need a ref/callback so AuthProvider can signal AppContent when a
+  // session arrives (e.g. after a magic-link or OTP redirect).
+  const [sessionSignal, setSessionSignal] = useState(0);
+
   return (
-    <AuthProvider>
-      <AppContent />
+    <AuthProvider onSessionReady={() => setSessionSignal((n) => n + 1)}>
+      <AppContent sessionSignal={sessionSignal} />
     </AuthProvider>
   );
 }
