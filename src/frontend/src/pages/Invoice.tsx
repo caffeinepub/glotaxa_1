@@ -12,14 +12,12 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { InvoicePrePopData, TabName } from "../App";
-import { useAuth } from "../contexts/AuthContext";
+import { supabase, useAuth } from "../contexts/AuthContext";
 import { VAT_RULES } from "../data/vatRules";
 import type { CountryCode } from "../data/vatRules";
 import type { Invoice16931, InvoiceLineItem } from "../types/invoice";
 import { downloadInvoicePDF } from "../utils/invoicePDF";
 import { downloadInvoiceXML } from "../utils/invoiceXML";
-
-const SUPABASE_URL = "https://cvelhiuefcykduwgnjjs.supabase.co";
 
 interface InvoiceProps {
   setActiveTab: (tab: TabName) => void;
@@ -112,7 +110,7 @@ export default function Invoice({
     .toISOString()
     .split("T")[0];
 
-  const { accessToken, isAuthenticated } = useAuth();
+  const { accessToken, isAuthenticated, userId } = useAuth();
 
   const [invoiceNumber, setInvoiceNumber] = useState(generateInvoiceNumber());
   const [invoiceDate, setInvoiceDate] = useState(today);
@@ -155,7 +153,7 @@ export default function Invoice({
   );
   const [notes, setNotes] = useState("");
 
-  // Generate Invoice via edge function
+  // Generate Invoice state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [generateSuccess, setGenerateSuccess] = useState(false);
@@ -334,9 +332,13 @@ export default function Invoice({
   const handleDownloadPDF = () => downloadInvoicePDF(buildInvoice16931());
   const handleDownloadXML = () => downloadInvoiceXML(buildInvoice16931());
 
-  // Generate Invoice via Supabase Edge Function
+  // Generate Invoice — steps:
+  // 0. Pre-check usage via get_invoice_usage RPC (friendly client-side guard)
+  // 1. Limit check via create_invoice_secure RPC (server-side authoritative check)
+  // 2. Insert invoice into invoices table
+  // 3. For each line item: call create_invoice_item_secure first, then insert into invoice_items
   const handleGenerateInvoice = async () => {
-    if (!isAuthenticated || !accessToken) {
+    if (!isAuthenticated || !accessToken || !userId) {
       setGenerateError(
         "You must be signed in to generate invoices via the cloud. Use PDF/XML export instead.",
       );
@@ -347,43 +349,93 @@ export default function Invoice({
     setGenerateError(null);
     setGenerateSuccess(false);
 
-    const timestamp = Date.now();
-    const edgeInvoiceNumber = `INV-${timestamp}`;
-
     try {
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/create-invoice`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            invoice_number: edgeInvoiceNumber,
-            total_amount: totalGross,
-          }),
-        },
-      );
+      // Step 0: Pre-check usage client-side for a friendly early error
+      const { data: usageData, error: usageError } =
+        await supabase.rpc("get_invoice_usage");
 
-      if (response.status === 200 || response.ok) {
-        setGenerateSuccess(true);
-        if (onInvoiceGenerated) {
-          onInvoiceGenerated(edgeInvoiceNumber, totalGross, currency);
+      if (!usageError && Array.isArray(usageData) && usageData.length > 0) {
+        const { invoice_used, invoice_limit } = usageData[0];
+        if (invoice_used >= invoice_limit) {
+          setGenerateError("Invoice limit reached for your plan");
+          setTimeout(() => setActiveTab("pricing"), 2000);
+          return;
         }
-      } else if (response.status === 403) {
-        setGenerateError(
-          "You've reached your free plan limit. Upgrade to continue.",
-        );
-        // Navigate to pricing after short delay
+      }
+
+      // Step 1: Server-side authoritative limit check
+      const { error: limitError } = await supabase.rpc("create_invoice_secure");
+
+      if (limitError) {
+        setGenerateError("Invoice limit reached for your plan");
         setTimeout(() => setActiveTab("pricing"), 2000);
-      } else {
-        const data = await response.json().catch(() => ({}));
+        return;
+      }
+
+      // Step 2: Insert invoice record into the invoices table
+      const invoiceId = crypto.randomUUID();
+      const { error: invoiceError } = await supabase.from("invoices").insert({
+        id: invoiceId,
+        user_id: userId,
+        customer_name: buyerName || "Customer",
+        amount: totalGross,
+        status: "pending",
+      });
+
+      if (invoiceError) {
+        console.error(invoiceError);
         setGenerateError(
-          data?.message ||
-            data?.error ||
-            "Failed to generate invoice. Please try again.",
+          invoiceError.message || "Failed to save invoice. Please try again.",
         );
+        return;
+      }
+
+      // Step 3: For each line item — security check first, then direct insert
+      for (const item of lineItems) {
+        // 3a: Call create_invoice_item_secure to authorise the item insert
+        const { error: itemSecureError } = await supabase.rpc(
+          "create_invoice_item_secure",
+          { p_invoice_id: invoiceId },
+        );
+
+        if (itemSecureError) {
+          console.error(itemSecureError);
+          setGenerateError(
+            itemSecureError.message ||
+              "Failed to authorise invoice item. Please try again.",
+          );
+          return;
+        }
+
+        // 3b: Insert the item directly into invoice_items
+        const { error: itemInsertError } = await supabase
+          .from("invoice_items")
+          .insert({
+            invoice_id: invoiceId,
+            description: item.description || "Item",
+            item_type: item.itemType,
+            quantity: 1,
+            unit_price: item.netAmount,
+            vat_category: item.vatCategory,
+            vat_rate: item.vatRate,
+            vat_amount: (item.netAmount * item.vatRate) / 100,
+            net_amount: item.netAmount,
+          });
+
+        if (itemInsertError) {
+          console.error(itemInsertError);
+          setGenerateError(
+            itemInsertError.message ||
+              "Failed to save invoice items. Please try again.",
+          );
+          return;
+        }
+      }
+
+      // Success
+      setGenerateSuccess(true);
+      if (onInvoiceGenerated) {
+        onInvoiceGenerated(invoiceNumber, totalGross, currency);
       }
     } catch {
       setGenerateError(
@@ -676,7 +728,7 @@ export default function Invoice({
                   <th className="text-right py-2 pr-3 text-xs font-medium text-muted-foreground">
                     VAT Rate
                   </th>
-                  <th className="text-right py-2 text-xs font-medium text-muted-foreground">
+                  <th className="text-right py-2 pr-3 text-xs font-medium text-muted-foreground">
                     VAT Amount
                   </th>
                   <th className="py-2 w-8" />
@@ -893,7 +945,7 @@ export default function Invoice({
           </div>
         )}
 
-        {/* Generate Invoice via Edge Function */}
+        {/* Generate Invoice via Cloud */}
         {isAuthenticated && (
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-start justify-between gap-4">
@@ -909,6 +961,7 @@ export default function Invoice({
                 onClick={handleGenerateInvoice}
                 disabled={isGenerating}
                 className="shrink-0"
+                data-ocid="invoice.primary_button"
               >
                 {isGenerating ? (
                   <>
@@ -922,15 +975,21 @@ export default function Invoice({
             </div>
 
             {generateError && (
-              <div className="mt-4 flex items-start gap-2 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3">
+              <div
+                className="mt-4 flex items-start gap-2 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3"
+                data-ocid="invoice.error_state"
+              >
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{generateError}</span>
               </div>
             )}
 
             {generateSuccess && (
-              <div className="mt-4 bg-primary/10 border border-primary/30 text-primary text-sm rounded-lg px-4 py-3">
-                ✓ Invoice generated successfully! Navigating to preview…
+              <div
+                className="mt-4 bg-primary/10 border border-primary/30 text-primary text-sm rounded-lg px-4 py-3"
+                data-ocid="invoice.success_state"
+              >
+                ✓ Invoice created successfully!
               </div>
             )}
           </div>

@@ -10,8 +10,20 @@ import {
   Trophy,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+
+// ---------------------------------------------------------------------------
+// Paddle configuration
+// ---------------------------------------------------------------------------
+const PADDLE_CLIENT_TOKEN = "YOUR_PADDLE_CLIENT_TOKEN";
+
+// Map plan IDs to Paddle price IDs — replace with real IDs from your Paddle dashboard
+const PADDLE_PRICE_IDS: Record<string, string> = {
+  starter: "PRICE_ID_299",
+  pro: "PRICE_ID_499",
+  business: "PRICE_ID_999",
+};
 
 const SUPABASE_URL = "https://cvelhiuefcykduwgnjjs.supabase.co";
 const SUPABASE_ANON_KEY =
@@ -197,7 +209,12 @@ function PlanCard({
 
         {/* CTA Button */}
         {isCurrentPlan ? (
-          <Button className="w-full" variant="outline" disabled>
+          <Button
+            className="w-full"
+            variant="outline"
+            disabled
+            data-ocid={`pricing.${plan.id}.button`}
+          >
             <CheckCircle className="w-4 h-4 mr-2" />
             Current Plan
           </Button>
@@ -207,6 +224,7 @@ function PlanCard({
             variant={isHighlighted ? "default" : "outline"}
             disabled={isUpgrading}
             onClick={() => onUpgrade(plan.id)}
+            data-ocid={`pricing.${plan.id}.primary_button`}
           >
             {isUpgrading ? (
               <>
@@ -265,10 +283,82 @@ export default function Pricing() {
   const [upgradingPlanId, setUpgradingPlanId] = useState<string | null>(null);
   const [successPlanId, setSuccessPlanId] = useState<string | null>(null);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>("");
 
+  // ---------------------------------------------------------------------------
+  // Initialise Paddle once on mount
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const initPaddle = () => {
+      if (window.Paddle) {
+        window.Paddle.Setup({ token: PADDLE_CLIENT_TOKEN });
+      }
+    };
+
+    // Paddle script may already be loaded (from index.html) or still loading
+    if (window.Paddle) {
+      initPaddle();
+    } else {
+      // Poll briefly in case the script tag hasn't fired yet
+      const interval = setInterval(() => {
+        if (window.Paddle) {
+          initPaddle();
+          clearInterval(interval);
+        }
+      }, 100);
+      // Give up after 5s to avoid infinite polling
+      setTimeout(() => clearInterval(interval), 5000);
+    }
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Fetch user email from Supabase when authenticated
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!isAuthenticated || !userId || !accessToken) return;
+
+    fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.email) setUserEmail(data.email);
+      })
+      .catch(() => {});
+  }, [isAuthenticated, userId, accessToken]);
+
+  // ---------------------------------------------------------------------------
+  // Upgrade handler — Paddle checkout for paid plans, Supabase PATCH for free
+  // ---------------------------------------------------------------------------
   const handleUpgrade = async (planId: string) => {
+    // Paid plans: open Paddle checkout
+    if (planId !== "free") {
+      const priceId = PADDLE_PRICE_IDS[planId];
+      if (!priceId) {
+        setUpgradeError("Checkout is not available for this plan right now.");
+        return;
+      }
+
+      if (!window.Paddle) {
+        setUpgradeError(
+          "Payment system failed to load. Please refresh the page and try again.",
+        );
+        return;
+      }
+
+      window.Paddle.Checkout.open({
+        items: [{ priceId, quantity: 1 }],
+        ...(userEmail ? { customer: { email: userEmail } } : {}),
+      });
+      return;
+    }
+
+    // Free plan: update Supabase directly (existing logic)
     if (!isAuthenticated || !userId || !accessToken) {
-      setUpgradeError("You must be signed in to upgrade your plan.");
+      setUpgradeError("You must be signed in to change your plan.");
       return;
     }
 
@@ -293,14 +383,13 @@ export default function Pricing() {
       if (response.ok) {
         setCurrentPlan(planId);
         setSuccessPlanId(planId);
-        // Clear success indicator after 3s
         setTimeout(() => setSuccessPlanId(null), 3000);
       } else {
         const data = await response.json().catch(() => ({}));
         setUpgradeError(
           data?.message ||
             data?.error ||
-            "Failed to upgrade plan. Please try again.",
+            "Failed to update plan. Please try again.",
         );
       }
     } catch {
@@ -332,14 +421,20 @@ export default function Pricing() {
 
       {/* Error */}
       {upgradeError && (
-        <div className="max-w-xl mx-auto mb-6 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3 text-center">
+        <div
+          className="max-w-xl mx-auto mb-6 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3 text-center"
+          data-ocid="pricing.error_state"
+        >
           {upgradeError}
         </div>
       )}
 
       {/* Success */}
       {successPlanId && (
-        <div className="max-w-xl mx-auto mb-6 bg-primary/10 border border-primary/30 text-primary text-sm rounded-lg px-4 py-3 text-center flex items-center justify-center gap-2">
+        <div
+          className="max-w-xl mx-auto mb-6 bg-primary/10 border border-primary/30 text-primary text-sm rounded-lg px-4 py-3 text-center flex items-center justify-center gap-2"
+          data-ocid="pricing.success_state"
+        >
           <CheckCircle className="w-4 h-4" />
           Plan upgraded to{" "}
           <strong className="capitalize">{successPlanId}</strong> successfully!
@@ -363,6 +458,7 @@ export default function Pricing() {
       {/* Footer note */}
       <p className="text-center text-xs text-muted-foreground mt-10">
         All prices exclude VAT. Upgrade or downgrade at any time. No contracts.
+        Payments securely processed by Paddle.
       </p>
     </div>
   );

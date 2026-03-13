@@ -2,76 +2,110 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
-    --radius: 0.75rem;
-    --background: 1 0 0;
-    --foreground: 0.145 0 0;
-    --card: 1 0 0;
-    --card-foreground: 0.145 0 0;
-    --popover: 1 0 0;
-    --popover-foreground: 0.145 0 0;
-    --primary: 0.45 0.15 250;
+    --radius: 0.625rem;
+
+    /* Base — very light blue-white */
+    --background: 0.975 0.008 240;
+    --foreground: 0.15 0.04 240;
+
+    /* Card — pure white with slight blue cast */
+    --card: 0.995 0.005 240;
+    --card-foreground: 0.15 0.04 240;
+
+    --popover: 0.995 0.005 240;
+    --popover-foreground: 0.15 0.04 240;
+
+    /* Primary — deep ocean blue */
+    --primary: 0.38 0.13 255;
     --primary-foreground: 0.99 0 0;
-    --secondary: 0.96 0.01 250;
-    --secondary-foreground: 0.25 0.08 250;
-    --muted: 0.96 0.01 250;
-    --muted-foreground: 0.5 0.03 250;
-    --accent: 0.96 0.01 250;
-    --accent-foreground: 0.25 0.08 250;
+
+    /* Secondary — soft periwinkle */
+    --secondary: 0.93 0.03 255;
+    --secondary-foreground: 0.3 0.1 255;
+
+    --muted: 0.94 0.02 240;
+    --muted-foreground: 0.52 0.04 240;
+
+    --accent: 0.93 0.03 255;
+    --accent-foreground: 0.3 0.1 255;
+
     --destructive: 0.577 0.245 27.325;
     --destructive-foreground: 0.985 0 0;
-    --border: 0.92 0.01 250;
-    --input: 0.92 0.01 250;
-    --ring: 0.45 0.15 250;
-    --chart-1: 0.65 0.2 280;
-    --chart-2: 0.6 0.18 200;
-    --chart-3: 0.55 0.16 160;
-    --chart-4: 0.7 0.22 320;
-    --chart-5: 0.68 0.19 40;
-    --sidebar: 0.985 0 0;
-    --sidebar-foreground: 0.145 0 0;
-    --sidebar-primary: 0.45 0.15 250;
+
+    --border: 0.88 0.025 240;
+    --input: 0.88 0.025 240;
+    --ring: 0.38 0.13 255;
+
+    /* Chart/tab unique colors */
+    --chart-1: 0.42 0.14 255; /* deep blue — Select Region */
+    --chart-2: 0.48 0.16 195; /* teal — Transaction */
+    --chart-3: 0.44 0.14 160; /* forest green — Invoice */
+    --chart-4: 0.46 0.15 290; /* deep violet — API Docs */
+    --chart-5: 0.5 0.14 30; /* warm amber — Pricing */
+
+    --sidebar: 0.97 0.01 240;
+    --sidebar-foreground: 0.15 0.04 240;
+    --sidebar-primary: 0.38 0.13 255;
     --sidebar-primary-foreground: 0.99 0 0;
-    --sidebar-accent: 0.96 0.01 250;
-    --sidebar-accent-foreground: 0.25 0.08 250;
-    --sidebar-border: 0.92 0.01 250;
-    --sidebar-ring: 0.45 0.15 250;
+    --sidebar-accent: 0.93 0.03 255;
+    --sidebar-accent-foreground: 0.3 0.1 255;
+    --sidebar-border: 0.88 0.025 240;
+    --sidebar-ring: 0.38 0.13 255;
   }
 
   .dark {
-    --background: 0.145 0 0;
-    --foreground: 0.985 0 0;
-    --card: 0.2 0 0;
-    --card-foreground: 0.985 0 0;
-    --popover: 0.2 0 0;
-    --popover-foreground: 0.985 0 0;
-    --primary: 0.65 0.2 280;
-    --primary-foreground: 0.99 0 0;
-    --secondary: 0.25 0.05 250;
-    --secondary-foreground: 0.985 0 0;
-    --muted: 0.25 0.05 250;
-    --muted-foreground: 0.65 0.05 250;
-    --accent: 0.3 0.08 250;
-    --accent-foreground: 0.985 0 0;
+    --background: 0.12 0.03 255;
+    --foreground: 0.96 0.01 240;
+
+    --card: 0.17 0.04 255;
+    --card-foreground: 0.96 0.01 240;
+
+    --popover: 0.17 0.04 255;
+    --popover-foreground: 0.96 0.01 240;
+
+    --primary: 0.65 0.18 255;
+    --primary-foreground: 0.1 0.03 255;
+
+    --secondary: 0.24 0.06 255;
+    --secondary-foreground: 0.9 0.02 240;
+
+    --muted: 0.24 0.06 255;
+    --muted-foreground: 0.62 0.06 240;
+
+    --accent: 0.28 0.08 255;
+    --accent-foreground: 0.9 0.02 240;
+
     --destructive: 0.6 0.22 27;
     --destructive-foreground: 0.99 0 0;
-    --border: 0.3 0.05 250;
-    --input: 0.3 0.05 250;
-    --ring: 0.65 0.2 280;
-    --chart-1: 0.65 0.2 280;
-    --chart-2: 0.6 0.18 200;
-    --chart-3: 0.55 0.16 160;
-    --chart-4: 0.7 0.22 320;
-    --chart-5: 0.68 0.19 40;
-    --sidebar: 0.2 0 0;
-    --sidebar-foreground: 0.985 0 0;
-    --sidebar-primary: 0.65 0.2 280;
-    --sidebar-primary-foreground: 0.99 0 0;
-    --sidebar-accent: 0.3 0.08 250;
-    --sidebar-accent-foreground: 0.985 0 0;
-    --sidebar-border: 0.3 0.05 250;
-    --sidebar-ring: 0.65 0.2 280;
+
+    --border: 0.28 0.05 255;
+    --input: 0.28 0.05 255;
+    --ring: 0.65 0.18 255;
+
+    --chart-1: 0.65 0.18 255;
+    --chart-2: 0.62 0.17 195;
+    --chart-3: 0.6 0.16 160;
+    --chart-4: 0.63 0.18 290;
+    --chart-5: 0.66 0.16 50;
+
+    --sidebar: 0.17 0.04 255;
+    --sidebar-foreground: 0.96 0.01 240;
+    --sidebar-primary: 0.65 0.18 255;
+    --sidebar-primary-foreground: 0.1 0.03 255;
+    --sidebar-accent: 0.28 0.08 255;
+    --sidebar-accent-foreground: 0.9 0.02 240;
+    --sidebar-border: 0.28 0.05 255;
+    --sidebar-ring: 0.65 0.18 255;
   }
 
   * {
@@ -79,7 +113,15 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
   }
+}
+
+/* Subtle dot-grid background pattern for the main app */
+.app-bg-pattern {
+  background-color: oklch(0.975 0.008 240);
+  background-image: radial-gradient(oklch(0.88 0.025 240) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 /* MASTER DROPDOWN FIX */
@@ -105,4 +147,38 @@ select {
 [data-radix-popper-content-wrapper],
 [data-radix-select-content] {
   z-index: 99999 !important;
+}
+
+/* Tab hover color classes */
+.tab-hover-indigo:hover:not(.tab-active) {
+  background-color: oklch(0.91 0.04 270);
+}
+.tab-hover-blue:hover:not(.tab-active) {
+  background-color: oklch(0.92 0.04 255);
+}
+.tab-hover-teal:hover:not(.tab-active) {
+  background-color: oklch(0.92 0.04 195);
+}
+.tab-hover-green:hover:not(.tab-active) {
+  background-color: oklch(0.92 0.04 160);
+}
+.tab-hover-violet:hover:not(.tab-active) {
+  background-color: oklch(0.92 0.04 290);
+}
+.tab-hover-amber:hover:not(.tab-active) {
+  background-color: oklch(0.95 0.04 30);
+}
+
+/* Step indicator dots */
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: oklch(0.88 0.025 240);
+  transition: background-color 0.2s ease;
+}
+.step-dot.active {
+  background-color: oklch(0.38 0.13 255);
+  width: 24px;
+  border-radius: 4px;
 }
