@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
 import {
+  Bot,
   Calculator,
   CheckCircle,
   FileText,
   Globe,
   Shield,
+  TrendingUp,
   Zap,
 } from "lucide-react";
 
@@ -22,7 +24,7 @@ export function LandingPage({ startApp }: LandingPageProps) {
         </Button>
       </div>
 
-      {/* Hero Section */}
+      {/* Original Hero Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto text-center max-w-4xl">
           <div className="flex justify-center mb-6">
@@ -46,6 +48,94 @@ export function LandingPage({ startApp }: LandingPageProps) {
           <Button onClick={startApp} size="lg" className="text-lg px-8 py-6">
             Get Started
           </Button>
+        </div>
+      </section>
+
+      {/* AI-Powered Hero Section */}
+      <section className="py-20 px-4 bg-gradient-to-br from-chart-1/10 via-chart-2/5 to-transparent border-y border-border">
+        <div className="container mx-auto text-center max-w-4xl">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
+            Glotaxa &ndash; AI Powered Invoicing &amp; VAT Automation
+          </h2>
+          <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+            Create invoices, calculate VAT automatically, and manage tax
+            compliance with an AI powered assistant designed for freelancers,
+            startups, and small businesses.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="/pricing" data-ocid="hero.pricing.link">
+              <Button
+                size="lg"
+                className="text-base px-8 py-5 w-full sm:w-auto"
+              >
+                View Pricing
+              </Button>
+            </a>
+            <a href="/login" data-ocid="hero.start_free.link">
+              <Button
+                variant="outline"
+                size="lg"
+                className="text-base px-8 py-5 w-full sm:w-auto"
+              >
+                Start Free
+              </Button>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Feature Highlights Section */}
+      <section className="py-16 px-4">
+        <div className="container mx-auto max-w-5xl">
+          <div className="grid md:grid-cols-3 gap-8">
+            <div
+              className="bg-card p-6 rounded-xl border border-border text-center"
+              data-ocid="feature.vat.card"
+            >
+              <div className="flex justify-center mb-4">
+                <div className="w-12 h-12 rounded-lg bg-chart-1/10 flex items-center justify-center">
+                  <Bot className="w-6 h-6 text-chart-1" />
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">AI VAT Calculation</h3>
+              <p className="text-muted-foreground">
+                Automatically apply VAT rates based on product category and
+                region.
+              </p>
+            </div>
+
+            <div
+              className="bg-card p-6 rounded-xl border border-border text-center"
+              data-ocid="feature.invoicing.card"
+            >
+              <div className="flex justify-center mb-4">
+                <div className="w-12 h-12 rounded-lg bg-chart-2/10 flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-chart-2" />
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Smart Invoicing</h3>
+              <p className="text-muted-foreground">
+                Create professional invoices with automated tax calculations.
+              </p>
+            </div>
+
+            <div
+              className="bg-card p-6 rounded-xl border border-border text-center"
+              data-ocid="feature.compliance.card"
+            >
+              <div className="flex justify-center mb-4">
+                <div className="w-12 h-12 rounded-lg bg-chart-3/10 flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-chart-3" />
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">
+                Tax Compliance Score
+              </h3>
+              <p className="text-muted-foreground">
+                Monitor VAT compliance and reduce tax errors using AI insights.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -119,6 +209,56 @@ export function LandingPage({ startApp }: LandingPageProps) {
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer
+        className="py-8 px-4 border-t border-border bg-muted/20"
+        data-ocid="footer.section"
+      >
+        <div className="container mx-auto max-w-6xl">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-muted-foreground text-sm">
+              &copy; {new Date().getFullYear()} Glotaxa
+            </p>
+            <nav
+              className="flex flex-wrap gap-4 text-sm"
+              data-ocid="footer.panel"
+            >
+              <a
+                href="/terms"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                data-ocid="footer.terms.link"
+              >
+                Terms
+              </a>
+              <span className="text-muted-foreground">|</span>
+              <a
+                href="/privacy"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                data-ocid="footer.privacy.link"
+              >
+                Privacy
+              </a>
+              <span className="text-muted-foreground">|</span>
+              <a
+                href="/refund"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                data-ocid="footer.refund.link"
+              >
+                Refund Policy
+              </a>
+              <span className="text-muted-foreground">|</span>
+              <a
+                href="/pricing"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                data-ocid="footer.pricing.link"
+              >
+                Pricing
+              </a>
+            </nav>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

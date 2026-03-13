@@ -8,7 +8,10 @@ import Invoice from "./pages/Invoice";
 import InvoicePreview from "./pages/InvoicePreview";
 import Login from "./pages/Login";
 import Pricing from "./pages/Pricing";
+import Privacy from "./pages/Privacy";
+import Refund from "./pages/Refund";
 import RegionSelect from "./pages/RegionSelect";
+import Terms from "./pages/Terms";
 import Transaction from "./pages/Transaction";
 
 export type TabName =
@@ -36,6 +39,14 @@ export interface InvoicePrePopData {
   buyerType: string;
   category: string;
   isOSS: boolean;
+}
+
+function LegalPageRouter() {
+  const path = window.location.pathname;
+  if (path === "/terms") return <Terms />;
+  if (path === "/privacy") return <Privacy />;
+  if (path === "/refund") return <Refund />;
+  return null;
 }
 
 function AppContent({ sessionSignal }: { sessionSignal: number }) {
@@ -364,16 +375,25 @@ function AppContent({ sessionSignal }: { sessionSignal: number }) {
   );
 }
 
-function App() {
-  // We need a ref/callback so AuthProvider can signal AppContent when a
-  // session arrives (e.g. after a magic-link or OTP redirect).
+function AppWithSession() {
   const [sessionSignal, setSessionSignal] = useState(0);
-
   return (
     <AuthProvider onSessionReady={() => setSessionSignal((n) => n + 1)}>
       <AppContent sessionSignal={sessionSignal} />
     </AuthProvider>
   );
+}
+
+function App() {
+  const currentPath = window.location.pathname;
+  if (
+    currentPath === "/terms" ||
+    currentPath === "/privacy" ||
+    currentPath === "/refund"
+  ) {
+    return <LegalPageRouter />;
+  }
+  return <AppWithSession />;
 }
 
 export default App;

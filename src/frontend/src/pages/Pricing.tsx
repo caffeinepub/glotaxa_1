@@ -16,13 +16,12 @@ import { useAuth } from "../contexts/AuthContext";
 // ---------------------------------------------------------------------------
 // Paddle configuration
 // ---------------------------------------------------------------------------
-const PADDLE_CLIENT_TOKEN = "YOUR_PADDLE_CLIENT_TOKEN";
+const PADDLE_CLIENT_TOKEN = "live_d09b7a642a152b846a4bb178859";
 
-// Map plan IDs to Paddle price IDs — replace with real IDs from your Paddle dashboard
 const PADDLE_PRICE_IDS: Record<string, string> = {
-  starter: "PRICE_ID_299",
-  pro: "PRICE_ID_499",
-  business: "PRICE_ID_999",
+  starter: "pri_01kk0ym38zmzr21hjp11tpm3r8",
+  pro: "pri_01kk0yptcrkfgc75dwan4qdh79",
+  business: "pri_01kk0ys2ez4vb8qf1cq8dytf7e",
 };
 
 const SUPABASE_URL = "https://cvelhiuefcykduwgnjjs.supabase.co";
@@ -286,7 +285,7 @@ export default function Pricing() {
   const [userEmail, setUserEmail] = useState<string>("");
 
   // ---------------------------------------------------------------------------
-  // Initialise Paddle once on mount
+  // Load and initialise Paddle on mount
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const initPaddle = () => {
@@ -295,19 +294,14 @@ export default function Pricing() {
       }
     };
 
-    // Paddle script may already be loaded (from index.html) or still loading
     if (window.Paddle) {
       initPaddle();
     } else {
-      // Poll briefly in case the script tag hasn't fired yet
-      const interval = setInterval(() => {
-        if (window.Paddle) {
-          initPaddle();
-          clearInterval(interval);
-        }
-      }, 100);
-      // Give up after 5s to avoid infinite polling
-      setTimeout(() => clearInterval(interval), 5000);
+      const script = document.createElement("script");
+      script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
+      script.async = true;
+      script.onload = () => initPaddle();
+      document.body.appendChild(script);
     }
   }, []);
 
@@ -331,40 +325,77 @@ export default function Pricing() {
   }, [isAuthenticated, userId, accessToken]);
 
   // ---------------------------------------------------------------------------
-  // Upgrade handler — Paddle checkout for paid plans, Supabase PATCH for free
+  // Checkout functions — one per paid plan
+  // ---------------------------------------------------------------------------
+  const upgradeToStarter = async () => {
+    if (!window.Paddle) {
+      setUpgradeError(
+        "Payment system failed to load. Please refresh and try again.",
+      );
+      return;
+    }
+    const email = userEmail;
+    window.Paddle.Checkout.open({
+      items: [{ priceId: PADDLE_PRICE_IDS.starter, quantity: 1 }],
+      ...(email ? { customer: { email } } : {}),
+    });
+  };
+
+  const upgradeToPro = async () => {
+    if (!window.Paddle) {
+      setUpgradeError(
+        "Payment system failed to load. Please refresh and try again.",
+      );
+      return;
+    }
+    const email = userEmail;
+    window.Paddle.Checkout.open({
+      items: [{ priceId: PADDLE_PRICE_IDS.pro, quantity: 1 }],
+      ...(email ? { customer: { email } } : {}),
+    });
+  };
+
+  const upgradeToBusiness = async () => {
+    if (!window.Paddle) {
+      setUpgradeError(
+        "Payment system failed to load. Please refresh and try again.",
+      );
+      return;
+    }
+    const email = userEmail;
+    window.Paddle.Checkout.open({
+      items: [{ priceId: PADDLE_PRICE_IDS.business, quantity: 1 }],
+      ...(email ? { customer: { email } } : {}),
+    });
+  };
+
+  // ---------------------------------------------------------------------------
+  // Upgrade handler — routes to the right checkout function per plan
   // ---------------------------------------------------------------------------
   const handleUpgrade = async (planId: string) => {
-    // Paid plans: open Paddle checkout
-    if (planId !== "free") {
-      const priceId = PADDLE_PRICE_IDS[planId];
-      if (!priceId) {
-        setUpgradeError("Checkout is not available for this plan right now.");
-        return;
-      }
+    setUpgradeError(null);
+    setSuccessPlanId(null);
 
-      if (!window.Paddle) {
-        setUpgradeError(
-          "Payment system failed to load. Please refresh the page and try again.",
-        );
-        return;
-      }
-
-      window.Paddle.Checkout.open({
-        items: [{ priceId, quantity: 1 }],
-        ...(userEmail ? { customer: { email: userEmail } } : {}),
-      });
+    if (planId === "starter") {
+      upgradeToStarter();
+      return;
+    }
+    if (planId === "pro") {
+      upgradeToPro();
+      return;
+    }
+    if (planId === "business") {
+      upgradeToBusiness();
       return;
     }
 
-    // Free plan: update Supabase directly (existing logic)
+    // Free plan: update Supabase directly
     if (!isAuthenticated || !userId || !accessToken) {
       setUpgradeError("You must be signed in to change your plan.");
       return;
     }
 
     setUpgradingPlanId(planId);
-    setUpgradeError(null);
-    setSuccessPlanId(null);
 
     try {
       const response = await fetch(
@@ -459,6 +490,16 @@ export default function Pricing() {
       <p className="text-center text-xs text-muted-foreground mt-10">
         All prices exclude VAT. Upgrade or downgrade at any time. No contracts.
         Payments securely processed by Paddle.
+      </p>
+      <p className="text-center text-xs text-muted-foreground mt-2">
+        For support, contact us at{" "}
+        <a
+          href="mailto:gdenterprises005@gmail.com"
+          className="underline hover:text-foreground transition-colors"
+          data-ocid="pricing.link"
+        >
+          gdenterprises005@gmail.com
+        </a>
       </p>
     </div>
   );
