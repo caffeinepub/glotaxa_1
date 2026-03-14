@@ -486,21 +486,49 @@ export default function Pricing() {
         ))}
       </div>
 
-      {/* Footer note */}
-      <p className="text-center text-xs text-muted-foreground mt-10">
-        All prices exclude VAT. Upgrade or downgrade at any time. No contracts.
-        Payments securely processed by Paddle.
-      </p>
-      <p className="text-center text-xs text-muted-foreground mt-2">
-        For support, contact us at{" "}
-        <a
-          href="mailto:gdenterprises005@gmail.com"
-          className="underline hover:text-foreground transition-colors"
-          data-ocid="pricing.link"
-        >
-          gdenterprises005@gmail.com
-        </a>
-      </p>
+      {/* Footer */}
+      <div className="mt-12 pt-6 border-t border-border text-center space-y-2">
+        <p className="text-xs text-muted-foreground">
+          All prices exclude VAT. Upgrade or downgrade at any time. No
+          contracts. Payments securely processed by Paddle.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          For support, contact us at{" "}
+          <a
+            href="mailto:gdenterprises005@gmail.com"
+            className="underline hover:text-foreground transition-colors"
+            data-ocid="pricing.link"
+          >
+            gdenterprises005@gmail.com
+          </a>
+        </p>
+        <p className="text-xs text-muted-foreground pt-2">© 2026 Glotaxa</p>
+        <p className="text-xs text-muted-foreground">
+          <a
+            href="/terms"
+            className="underline hover:text-foreground transition-colors"
+            data-ocid="pricing.terms.link"
+          >
+            Terms
+          </a>
+          {" | "}
+          <a
+            href="/privacy"
+            className="underline hover:text-foreground transition-colors"
+            data-ocid="pricing.privacy.link"
+          >
+            Privacy
+          </a>
+          {" | "}
+          <a
+            href="/refund"
+            className="underline hover:text-foreground transition-colors"
+            data-ocid="pricing.refund.link"
+          >
+            Refund
+          </a>
+        </p>
+      </div>
     </div>
   );
 }
