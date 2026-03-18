@@ -38,18 +38,23 @@ export function Header({ onNavigateDashboard, onLogout }: HeaderProps) {
             >
               <Calculator className="w-5 h-5 text-white" />
             </div>
-            <h1
-              className="text-2xl font-bold tracking-tight"
-              style={{
-                background:
-                  "linear-gradient(135deg, oklch(0.38 0.13 255), oklch(0.48 0.16 195))",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              Glotaxa
-            </h1>
+            <div className="flex flex-col">
+              <h1
+                className="text-2xl font-bold tracking-tight leading-none"
+                style={{
+                  background:
+                    "linear-gradient(135deg, oklch(0.38 0.13 255), oklch(0.48 0.16 195))",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
+                Glotaxa
+              </h1>
+              <span className="text-xs text-muted-foreground tracking-wide mt-0.5">
+                AI-Powered Invoicing &amp; Tax Made Simple
+              </span>
+            </div>
           </div>
 
           {isAuthenticated && (
