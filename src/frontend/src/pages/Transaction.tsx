@@ -14,13 +14,13 @@ import { TransportVatModal } from "../components/TransportVatModal";
 import { VAT_RULES } from "../data/vatRules";
 import type { CountryCode } from "../data/vatRules";
 import { VAT_CATEGORIES, calculateVAT } from "../engine/vatEngine";
-import {
-  askAIVatExplainer,
-  askFreeformQuestion,
-} from "../utils/aiVatExplainer";
+import { askAIVatExplainer } from "../utils/aiVatExplainer";
 import { calculateComplianceScore } from "../utils/complianceScoreCalculator";
 import { riskDetector } from "../utils/riskDetector";
 import { explainVATDecision } from "../utils/vatLogicExplainer";
+
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM";
 
 interface TransactionProps {
   selectedCountry: string;
@@ -101,6 +101,20 @@ export default function Transaction({
       setCalculationResult(result);
       setHasCalculated(true);
       setAiExplanation(null);
+      // Save transaction context for AI VAT Assistant
+      try {
+        const saved = localStorage.getItem("vat_transactions");
+        const existing = saved ? JSON.parse(saved) : [];
+        const entry = {
+          country: buyerCountry,
+          amount: netAmount,
+          vat_rate: result.vatRate,
+        };
+        const updated = [...existing, entry].slice(-10);
+        localStorage.setItem("vat_transactions", JSON.stringify(updated));
+      } catch {
+        /* ignore */
+      }
       setAiError(null);
     } catch {
       // ignore calculation errors
@@ -147,10 +161,18 @@ export default function Transaction({
         "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/ai-vat",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({ question: userQuestion }),
         },
       );
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "Unknown error");
+        setFreeformError(`AI service error (${response.status}): ${errText}`);
+        return;
+      }
       const data = await response.json();
       setFreeformAnswer(data.answer ?? "No answer received");
     } catch (error) {

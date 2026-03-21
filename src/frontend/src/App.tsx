@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import AIVATAssistant from "./pages/AIVATAssistant";
 import ApiDocs from "./pages/ApiDocs";
 import Dashboard from "./pages/Dashboard";
 import Invoice from "./pages/Invoice";
@@ -19,6 +20,7 @@ export type TabName =
   | "country"
   | "transaction"
   | "invoice"
+  | "ai-vat-assistant"
   | "apidocs"
   | "pricing";
 
@@ -84,6 +86,15 @@ function AppContent({ sessionSignal }: { sessionSignal: number }) {
       }
     }
   }, [sessionChecked, isAuthenticated]);
+
+  // Listen for navigate-to-pricing event from AIVATAssistant
+  useEffect(() => {
+    const handler = () => {
+      setActiveTab("pricing");
+    };
+    window.addEventListener("navigate-to-pricing", handler);
+    return () => window.removeEventListener("navigate-to-pricing", handler);
+  }, []);
 
   // Hide everything until the session check completes (prevents flash of login screen)
   if (!sessionChecked) {
@@ -202,6 +213,12 @@ function AppContent({ sessionSignal }: { sessionSignal: number }) {
       label: "2. Transaction",
       activeColor: "oklch(0.48 0.16 195)",
       hoverClass: "tab-hover-teal",
+    },
+    {
+      id: "ai-vat-assistant",
+      label: "AI VAT Assistant",
+      activeColor: "oklch(0.46 0.15 290)",
+      hoverClass: "tab-hover-violet",
     },
     {
       id: "invoice",
@@ -366,6 +383,7 @@ function AppContent({ sessionSignal }: { sessionSignal: number }) {
             onInvoiceGenerated={handleInvoiceGenerated}
           />
         )}
+        {activeTab === "ai-vat-assistant" && <AIVATAssistant />}
         {activeTab === "apidocs" && <ApiDocs setActiveTab={setActiveTab} />}
         {activeTab === "pricing" && <Pricing />}
       </main>

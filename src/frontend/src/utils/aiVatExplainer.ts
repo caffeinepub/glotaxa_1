@@ -60,6 +60,7 @@ export async function askFreeformQuestion(question: string): Promise<string> {
   const response = await fetch(AI_VAT_URL, {
     method: "POST",
     headers: {
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ question }),

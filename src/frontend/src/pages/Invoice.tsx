@@ -100,6 +100,97 @@ function getVatRateForCategory(
   }
 }
 
+function AskVATWidget() {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [isAsking, setIsAsking] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const { accessToken } = useAuth();
+
+  const askAI = async () => {
+    if (!question.trim()) return;
+    setIsAsking(true);
+    try {
+      const res = await fetch(
+        "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/ai-vat",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify({ question, simple: true }),
+        },
+      );
+      const data = await res.json();
+      setAnswer(data.answer ?? "Sorry, could not get a response.");
+    } catch {
+      setAnswer("Something went wrong. Please try again.");
+    } finally {
+      setIsAsking(false);
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center text-2xl transition-all hover:scale-110 z-50"
+        style={{ background: "oklch(0.42 0.14 255)" }}
+        title="Ask a VAT question"
+      >
+        ?
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="fixed bottom-6 right-6 w-80 bg-white shadow-2xl rounded-2xl border z-50"
+      style={{ borderColor: "oklch(0.85 0.02 255)" }}
+    >
+      <div
+        className="flex items-center justify-between px-4 py-3 rounded-t-2xl"
+        style={{ background: "oklch(0.42 0.14 255)" }}
+      >
+        <h3 className="font-semibold text-white text-sm">Ask VAT Question</h3>
+        <button
+          type="button"
+          onClick={() => setIsOpen(false)}
+          className="text-white/80 hover:text-white text-lg leading-none"
+        >
+          &times;
+        </button>
+      </div>
+      <div className="p-4">
+        <input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && askAI()}
+          placeholder="Quick VAT question..."
+          className="w-full border rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none"
+          style={{ borderColor: "oklch(0.85 0.02 255)" }}
+        />
+        <button
+          type="button"
+          onClick={askAI}
+          disabled={isAsking}
+          className="w-full py-2 rounded-lg text-white text-sm font-medium transition-opacity disabled:opacity-60"
+          style={{ background: "oklch(0.42 0.14 255)" }}
+        >
+          {isAsking ? "Asking..." : "Ask"}
+        </button>
+        {answer && (
+          <div className="mt-3 text-sm text-gray-700 bg-gray-50 rounded-lg p-3 leading-relaxed">
+            {answer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Invoice({
   setActiveTab,
   prePopData,
@@ -447,554 +538,565 @@ export default function Invoice({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      {/* Back Button */}
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setActiveTab("transaction")}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Transaction
-        </Button>
-      </div>
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            EN 16931 Compliant Invoice
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Generate EU/UK compliant electronic invoices
-            {prePopData && (
-              <span className="ml-2 inline-flex items-center gap-1 text-primary font-medium">
-                <FileText className="w-3 h-3" />
-                Pre-populated from transaction
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="flex gap-2">
+    <>
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        {/* Back Button */}
+        <div className="mb-6">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            onClick={handleDownloadXML}
-            className="flex items-center gap-2"
+            onClick={() => setActiveTab("transaction")}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
           >
-            <FileCode className="w-4 h-4" />
-            XML
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleDownloadPDF}
-            className="flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            PDF
+            <ArrowLeft className="w-4 h-4" />
+            Back to Transaction
           </Button>
         </div>
-      </div>
 
-      <div className="space-y-6">
-        {/* Invoice Header */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-semibold text-foreground mb-4">
-            Invoice Details
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <p className="block text-xs font-medium text-muted-foreground mb-1">
-                Invoice Number
-              </p>
-              <Input
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-              />
-            </div>
-            <div>
-              <p className="block text-xs font-medium text-muted-foreground mb-1">
-                Invoice Date
-              </p>
-              <Input
-                type="date"
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <p className="block text-xs font-medium text-muted-foreground mb-1">
-                Due Date
-              </p>
-              <Input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              EN 16931 Compliant Invoice
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Generate EU/UK compliant electronic invoices
+              {prePopData && (
+                <span className="ml-2 inline-flex items-center gap-1 text-primary font-medium">
+                  <FileText className="w-3 h-3" />
+                  Pre-populated from transaction
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadXML}
+              className="flex items-center gap-2"
+            >
+              <FileCode className="w-4 h-4" />
+              XML
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleDownloadPDF}
+              className="flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              PDF
+            </Button>
           </div>
         </div>
 
-        {/* Seller & Buyer */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Seller */}
+        <div className="space-y-6">
+          {/* Invoice Header */}
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="text-base font-semibold text-foreground mb-4">
-              Seller (Supplier)
+              Invoice Details
             </h2>
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <p className="block text-xs font-medium text-muted-foreground mb-1">
-                  Company Name
+                  Invoice Number
                 </p>
                 <Input
-                  value={sellerName}
-                  onChange={(e) => setSellerName(e.target.value)}
-                  placeholder="Your Company Ltd"
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
                 />
               </div>
               <div>
                 <p className="block text-xs font-medium text-muted-foreground mb-1">
-                  Address
+                  Invoice Date
                 </p>
                 <Input
-                  value={sellerAddress}
-                  onChange={(e) => setSellerAddress(e.target.value)}
-                  placeholder="123 Business St, City"
+                  type="date"
+                  value={invoiceDate}
+                  onChange={(e) => setInvoiceDate(e.target.value)}
                 />
               </div>
               <div>
                 <p className="block text-xs font-medium text-muted-foreground mb-1">
-                  VAT Number
+                  Due Date
                 </p>
                 <Input
-                  value={sellerVatNumber}
-                  onChange={(e) => setSellerVatNumber(e.target.value)}
-                  placeholder="GB123456789"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
                 />
               </div>
-              <div>
-                <p className="block text-xs font-medium text-muted-foreground mb-1">
-                  Email
-                </p>
-                <Input
-                  value={sellerEmail}
-                  onChange={(e) => setSellerEmail(e.target.value)}
-                  placeholder="billing@company.com"
-                />
+            </div>
+          </div>
+
+          {/* Seller & Buyer */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Seller */}
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h2 className="text-base font-semibold text-foreground mb-4">
+                Seller (Supplier)
+              </h2>
+              <div className="space-y-3">
+                <div>
+                  <p className="block text-xs font-medium text-muted-foreground mb-1">
+                    Company Name
+                  </p>
+                  <Input
+                    value={sellerName}
+                    onChange={(e) => setSellerName(e.target.value)}
+                    placeholder="Your Company Ltd"
+                  />
+                </div>
+                <div>
+                  <p className="block text-xs font-medium text-muted-foreground mb-1">
+                    Address
+                  </p>
+                  <Input
+                    value={sellerAddress}
+                    onChange={(e) => setSellerAddress(e.target.value)}
+                    placeholder="123 Business St, City"
+                  />
+                </div>
+                <div>
+                  <p className="block text-xs font-medium text-muted-foreground mb-1">
+                    VAT Number
+                  </p>
+                  <Input
+                    value={sellerVatNumber}
+                    onChange={(e) => setSellerVatNumber(e.target.value)}
+                    placeholder="GB123456789"
+                  />
+                </div>
+                <div>
+                  <p className="block text-xs font-medium text-muted-foreground mb-1">
+                    Email
+                  </p>
+                  <Input
+                    value={sellerEmail}
+                    onChange={(e) => setSellerEmail(e.target.value)}
+                    placeholder="billing@company.com"
+                  />
+                </div>
+                <div>
+                  <p className="block text-xs font-medium text-muted-foreground mb-1">
+                    Phone
+                  </p>
+                  <Input
+                    value={sellerPhone}
+                    onChange={(e) => setSellerPhone(e.target.value)}
+                    placeholder="+44 123 456789"
+                  />
+                </div>
+                <div>
+                  <p className="block text-xs font-medium text-muted-foreground mb-1">
+                    Country
+                  </p>
+                  <select
+                    value={sellerCountry}
+                    onChange={(e) => {
+                      const newCountry = e.target.value as CountryCode;
+                      setSellerCountry(newCountry);
+                      setLineItems((prev) =>
+                        prev.map((item) => ({
+                          ...item,
+                          vatRate: getVatRateForCategory(
+                            item.vatCategory,
+                            newCountry,
+                          ),
+                        })),
+                      );
+                    }}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {Object.entries(COUNTRY_NAMES).map(([code, name]) => (
+                      <option key={code} value={code}>
+                        {name} ({code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div>
-                <p className="block text-xs font-medium text-muted-foreground mb-1">
-                  Phone
-                </p>
-                <Input
-                  value={sellerPhone}
-                  onChange={(e) => setSellerPhone(e.target.value)}
-                  placeholder="+44 123 456789"
-                />
+            </div>
+
+            {/* Buyer */}
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h2 className="text-base font-semibold text-foreground mb-4">
+                Buyer (Customer)
+              </h2>
+              <div className="space-y-3">
+                <div>
+                  <p className="block text-xs font-medium text-muted-foreground mb-1">
+                    Company Name
+                  </p>
+                  <Input
+                    value={buyerName}
+                    onChange={(e) => setBuyerName(e.target.value)}
+                    placeholder="Customer Company Ltd"
+                  />
+                </div>
+                <div>
+                  <p className="block text-xs font-medium text-muted-foreground mb-1">
+                    Address
+                  </p>
+                  <Input
+                    value={buyerAddress}
+                    onChange={(e) => setBuyerAddress(e.target.value)}
+                    placeholder="456 Customer Ave, City"
+                  />
+                </div>
+                <div>
+                  <p className="block text-xs font-medium text-muted-foreground mb-1">
+                    Tax ID / VAT ID
+                  </p>
+                  <Input
+                    value={buyerTaxId}
+                    onChange={(e) => setBuyerTaxId(e.target.value)}
+                    placeholder="FR987654321"
+                  />
+                </div>
+                <div>
+                  <p className="block text-xs font-medium text-muted-foreground mb-1">
+                    Contract No. (optional)
+                  </p>
+                  <Input
+                    value={buyerContractNumber}
+                    onChange={(e) => setBuyerContractNumber(e.target.value)}
+                    placeholder="CONTRACT-001"
+                  />
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Line Items */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-base font-semibold text-foreground">
+                  Line Items
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                  {lineItems.length} / {MAX_LINE_ITEMS}
+                </span>
+                {atLineItemLimit && (
+                  <span className="text-xs text-warning font-medium bg-warning/10 px-2 py-0.5 rounded-full">
+                    Maximum reached
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addLineItem}
+                disabled={atLineItemLimit}
+                className="flex items-center gap-2"
+                title={
+                  atLineItemLimit
+                    ? `Maximum of ${MAX_LINE_ITEMS} line items allowed per invoice`
+                    : "Add a new line item"
+                }
+              >
+                <Plus className="w-4 h-4" />
+                Add Item
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 pr-3 text-xs font-medium text-muted-foreground">
+                      Description
+                    </th>
+                    <th className="text-left py-2 pr-3 text-xs font-medium text-muted-foreground">
+                      Type
+                    </th>
+                    <th className="text-right py-2 pr-3 text-xs font-medium text-muted-foreground">
+                      Net Amount
+                    </th>
+                    <th className="text-left py-2 pr-3 text-xs font-medium text-muted-foreground">
+                      VAT Category
+                    </th>
+                    <th className="text-right py-2 pr-3 text-xs font-medium text-muted-foreground">
+                      VAT Rate
+                    </th>
+                    <th className="text-right py-2 pr-3 text-xs font-medium text-muted-foreground">
+                      VAT Amount
+                    </th>
+                    <th className="py-2 w-8" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineItems.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-border/50 last:border-0"
+                    >
+                      <td className="py-3 pr-3">
+                        <Input
+                          value={item.description}
+                          onChange={(e) =>
+                            updateLineItem(
+                              item.id,
+                              "description",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Item description"
+                          className="h-8 text-xs"
+                        />
+                      </td>
+                      <td className="py-3 pr-3">
+                        <select
+                          value={item.itemType}
+                          onChange={(e) =>
+                            updateLineItem(item.id, "itemType", e.target.value)
+                          }
+                          className="h-8 px-2 bg-background border border-border rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          {ITEM_TYPES.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <Input
+                          type="number"
+                          value={item.netAmount}
+                          onChange={(e) =>
+                            updateLineItem(
+                              item.id,
+                              "netAmount",
+                              Number.parseFloat(e.target.value) || 0,
+                            )
+                          }
+                          className="h-8 text-xs text-right w-28"
+                          min="0"
+                          step="0.01"
+                        />
+                      </td>
+                      <td className="py-3 pr-3">
+                        <select
+                          value={item.vatCategory}
+                          onChange={(e) =>
+                            updateLineItem(
+                              item.id,
+                              "vatCategory",
+                              e.target.value,
+                            )
+                          }
+                          className="h-8 px-2 bg-background border border-border rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          {VAT_CATEGORIES_LIST.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-3 pr-3 text-right">
+                        <span className="text-xs font-medium text-foreground">
+                          {item.vatRate}%
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3 text-right">
+                        <span className="text-xs text-muted-foreground">
+                          {((item.netAmount * item.vatRate) / 100).toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <button
+                          type="button"
+                          onClick={() => removeLineItem(item.id)}
+                          disabled={lineItems.length === 1}
+                          className="p-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Currency & Payment */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="text-base font-semibold text-foreground mb-4">
+              Payment Details
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <p className="block text-xs font-medium text-muted-foreground mb-1">
-                  Country
+                  Currency
                 </p>
                 <select
-                  value={sellerCountry}
-                  onChange={(e) => {
-                    const newCountry = e.target.value as CountryCode;
-                    setSellerCountry(newCountry);
-                    setLineItems((prev) =>
-                      prev.map((item) => ({
-                        ...item,
-                        vatRate: getVatRateForCategory(
-                          item.vatCategory,
-                          newCountry,
-                        ),
-                      })),
-                    );
-                  }}
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
                   className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  {Object.entries(COUNTRY_NAMES).map(([code, name]) => (
-                    <option key={code} value={code}>
-                      {name} ({code})
+                  {CURRENCIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
                     </option>
                   ))}
                 </select>
               </div>
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Payment Method
+                </p>
+                <Input
+                  value={paymentMeans}
+                  onChange={(e) => setPaymentMeans(e.target.value)}
+                  placeholder="Bank Transfer"
+                />
+              </div>
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  IBAN
+                </p>
+                <Input
+                  value={iban}
+                  onChange={(e) => setIban(e.target.value)}
+                  placeholder="GB29 NWBK 6016 1331 9268 19"
+                />
+              </div>
+              <div>
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Early Payment Discount
+                </p>
+                <Input
+                  value={earlyPaymentDiscount}
+                  onChange={(e) => setEarlyPaymentDiscount(e.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Late Penalty Terms
+                </p>
+                <Input
+                  value={latePenaltyTerms}
+                  onChange={(e) => setLatePenaltyTerms(e.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <p className="block text-xs font-medium text-muted-foreground mb-1">
+                  Notes
+                </p>
+                <Input
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Additional notes or reverse charge statement"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Buyer */}
+          {/* Totals */}
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="text-base font-semibold text-foreground mb-4">
-              Buyer (Customer)
+              Invoice Totals
             </h2>
-            <div className="space-y-3">
-              <div>
-                <p className="block text-xs font-medium text-muted-foreground mb-1">
-                  Company Name
-                </p>
-                <Input
-                  value={buyerName}
-                  onChange={(e) => setBuyerName(e.target.value)}
-                  placeholder="Customer Company Ltd"
-                />
+            <div className="space-y-2 max-w-xs ml-auto">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Net Total</span>
+                <span className="font-medium">
+                  {currency} {totalNet.toFixed(2)}
+                </span>
               </div>
-              <div>
-                <p className="block text-xs font-medium text-muted-foreground mb-1">
-                  Address
-                </p>
-                <Input
-                  value={buyerAddress}
-                  onChange={(e) => setBuyerAddress(e.target.value)}
-                  placeholder="456 Customer Ave, City"
-                />
-              </div>
-              <div>
-                <p className="block text-xs font-medium text-muted-foreground mb-1">
-                  Tax ID / VAT ID
-                </p>
-                <Input
-                  value={buyerTaxId}
-                  onChange={(e) => setBuyerTaxId(e.target.value)}
-                  placeholder="FR987654321"
-                />
-              </div>
-              <div>
-                <p className="block text-xs font-medium text-muted-foreground mb-1">
-                  Contract No. (optional)
-                </p>
-                <Input
-                  value={buyerContractNumber}
-                  onChange={(e) => setBuyerContractNumber(e.target.value)}
-                  placeholder="CONTRACT-001"
-                />
+              {Object.values(vatBreakdown).map((v) => (
+                <div key={v.rate} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">VAT ({v.rate}%)</span>
+                  <span className="font-medium">
+                    {currency} {v.vat.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+              <div className="flex justify-between text-base font-bold border-t border-border pt-2 mt-2">
+                <span>Total (incl. VAT)</span>
+                <span>
+                  {currency} {totalGross.toFixed(2)}
+                </span>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Line Items */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <h2 className="text-base font-semibold text-foreground">
-                Line Items
-              </h2>
-              <span className="text-xs text-muted-foreground">
-                {lineItems.length} / {MAX_LINE_ITEMS}
-              </span>
-              {atLineItemLimit && (
-                <span className="text-xs text-warning font-medium bg-warning/10 px-2 py-0.5 rounded-full">
-                  Maximum reached
-                </span>
+          {/* UK VAT Reference Panel */}
+          {sellerCountry === "GB" && (
+            <div className="bg-muted/40 border border-border rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-2">
+                UK VAT Reference
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-muted-foreground">
+                <span>Standard Rate: 20%</span>
+                <span>Reduced Rate: 5%</span>
+                <span>Zero Rate: 0%</span>
+                <span>Basic Food: 0%</span>
+                <span>Medical: 0%</span>
+                <span>Education: 0%</span>
+                <span>Exports: 0%</span>
+                <span>Financial Services: Exempt</span>
+                <span>Insurance: Exempt</span>
+              </div>
+            </div>
+          )}
+
+          {/* Generate Invoice via Cloud */}
+          {isAuthenticated && (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">
+                    Generate Invoice (Cloud)
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Save your invoice to the cloud via your Glotaxa account.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleGenerateInvoice}
+                  disabled={isGenerating}
+                  className="shrink-0"
+                  data-ocid="invoice.primary_button"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating…
+                    </>
+                  ) : (
+                    "Generate Invoice"
+                  )}
+                </Button>
+              </div>
+
+              {generateError && (
+                <div
+                  className="mt-4 flex items-start gap-2 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3"
+                  data-ocid="invoice.error_state"
+                >
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{generateError}</span>
+                </div>
+              )}
+
+              {generateSuccess && (
+                <div
+                  className="mt-4 bg-primary/10 border border-primary/30 text-primary text-sm rounded-lg px-4 py-3"
+                  data-ocid="invoice.success_state"
+                >
+                  ✓ Invoice created successfully!
+                </div>
               )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={addLineItem}
-              disabled={atLineItemLimit}
-              className="flex items-center gap-2"
-              title={
-                atLineItemLimit
-                  ? `Maximum of ${MAX_LINE_ITEMS} line items allowed per invoice`
-                  : "Add a new line item"
-              }
-            >
-              <Plus className="w-4 h-4" />
-              Add Item
-            </Button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 pr-3 text-xs font-medium text-muted-foreground">
-                    Description
-                  </th>
-                  <th className="text-left py-2 pr-3 text-xs font-medium text-muted-foreground">
-                    Type
-                  </th>
-                  <th className="text-right py-2 pr-3 text-xs font-medium text-muted-foreground">
-                    Net Amount
-                  </th>
-                  <th className="text-left py-2 pr-3 text-xs font-medium text-muted-foreground">
-                    VAT Category
-                  </th>
-                  <th className="text-right py-2 pr-3 text-xs font-medium text-muted-foreground">
-                    VAT Rate
-                  </th>
-                  <th className="text-right py-2 pr-3 text-xs font-medium text-muted-foreground">
-                    VAT Amount
-                  </th>
-                  <th className="py-2 w-8" />
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="border-b border-border/50 last:border-0"
-                  >
-                    <td className="py-3 pr-3">
-                      <Input
-                        value={item.description}
-                        onChange={(e) =>
-                          updateLineItem(item.id, "description", e.target.value)
-                        }
-                        placeholder="Item description"
-                        className="h-8 text-xs"
-                      />
-                    </td>
-                    <td className="py-3 pr-3">
-                      <select
-                        value={item.itemType}
-                        onChange={(e) =>
-                          updateLineItem(item.id, "itemType", e.target.value)
-                        }
-                        className="h-8 px-2 bg-background border border-border rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                      >
-                        {ITEM_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-3 pr-3">
-                      <Input
-                        type="number"
-                        value={item.netAmount}
-                        onChange={(e) =>
-                          updateLineItem(
-                            item.id,
-                            "netAmount",
-                            Number.parseFloat(e.target.value) || 0,
-                          )
-                        }
-                        className="h-8 text-xs text-right w-28"
-                        min="0"
-                        step="0.01"
-                      />
-                    </td>
-                    <td className="py-3 pr-3">
-                      <select
-                        value={item.vatCategory}
-                        onChange={(e) =>
-                          updateLineItem(item.id, "vatCategory", e.target.value)
-                        }
-                        className="h-8 px-2 bg-background border border-border rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                      >
-                        {VAT_CATEGORIES_LIST.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-3 pr-3 text-right">
-                      <span className="text-xs font-medium text-foreground">
-                        {item.vatRate}%
-                      </span>
-                    </td>
-                    <td className="py-3 pr-3 text-right">
-                      <span className="text-xs text-muted-foreground">
-                        {((item.netAmount * item.vatRate) / 100).toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <button
-                        type="button"
-                        onClick={() => removeLineItem(item.id)}
-                        disabled={lineItems.length === 1}
-                        className="p-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          )}
         </div>
-
-        {/* Currency & Payment */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-semibold text-foreground mb-4">
-            Payment Details
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <p className="block text-xs font-medium text-muted-foreground mb-1">
-                Currency
-              </p>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <p className="block text-xs font-medium text-muted-foreground mb-1">
-                Payment Method
-              </p>
-              <Input
-                value={paymentMeans}
-                onChange={(e) => setPaymentMeans(e.target.value)}
-                placeholder="Bank Transfer"
-              />
-            </div>
-            <div>
-              <p className="block text-xs font-medium text-muted-foreground mb-1">
-                IBAN
-              </p>
-              <Input
-                value={iban}
-                onChange={(e) => setIban(e.target.value)}
-                placeholder="GB29 NWBK 6016 1331 9268 19"
-              />
-            </div>
-            <div>
-              <p className="block text-xs font-medium text-muted-foreground mb-1">
-                Early Payment Discount
-              </p>
-              <Input
-                value={earlyPaymentDiscount}
-                onChange={(e) => setEarlyPaymentDiscount(e.target.value)}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <p className="block text-xs font-medium text-muted-foreground mb-1">
-                Late Penalty Terms
-              </p>
-              <Input
-                value={latePenaltyTerms}
-                onChange={(e) => setLatePenaltyTerms(e.target.value)}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <p className="block text-xs font-medium text-muted-foreground mb-1">
-                Notes
-              </p>
-              <Input
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Additional notes or reverse charge statement"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Totals */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-semibold text-foreground mb-4">
-            Invoice Totals
-          </h2>
-          <div className="space-y-2 max-w-xs ml-auto">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Net Total</span>
-              <span className="font-medium">
-                {currency} {totalNet.toFixed(2)}
-              </span>
-            </div>
-            {Object.values(vatBreakdown).map((v) => (
-              <div key={v.rate} className="flex justify-between text-sm">
-                <span className="text-muted-foreground">VAT ({v.rate}%)</span>
-                <span className="font-medium">
-                  {currency} {v.vat.toFixed(2)}
-                </span>
-              </div>
-            ))}
-            <div className="flex justify-between text-base font-bold border-t border-border pt-2 mt-2">
-              <span>Total (incl. VAT)</span>
-              <span>
-                {currency} {totalGross.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* UK VAT Reference Panel */}
-        {sellerCountry === "GB" && (
-          <div className="bg-muted/40 border border-border rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-2">
-              UK VAT Reference
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-muted-foreground">
-              <span>Standard Rate: 20%</span>
-              <span>Reduced Rate: 5%</span>
-              <span>Zero Rate: 0%</span>
-              <span>Basic Food: 0%</span>
-              <span>Medical: 0%</span>
-              <span>Education: 0%</span>
-              <span>Exports: 0%</span>
-              <span>Financial Services: Exempt</span>
-              <span>Insurance: Exempt</span>
-            </div>
-          </div>
-        )}
-
-        {/* Generate Invoice via Cloud */}
-        {isAuthenticated && (
-          <div className="bg-card border border-border rounded-xl p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-base font-semibold text-foreground">
-                  Generate Invoice (Cloud)
-                </h2>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Save your invoice to the cloud via your Glotaxa account.
-                </p>
-              </div>
-              <Button
-                onClick={handleGenerateInvoice}
-                disabled={isGenerating}
-                className="shrink-0"
-                data-ocid="invoice.primary_button"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  "Generate Invoice"
-                )}
-              </Button>
-            </div>
-
-            {generateError && (
-              <div
-                className="mt-4 flex items-start gap-2 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3"
-                data-ocid="invoice.error_state"
-              >
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{generateError}</span>
-              </div>
-            )}
-
-            {generateSuccess && (
-              <div
-                className="mt-4 bg-primary/10 border border-primary/30 text-primary text-sm rounded-lg px-4 py-3"
-                data-ocid="invoice.success_state"
-              >
-                ✓ Invoice created successfully!
-              </div>
-            )}
-          </div>
-        )}
       </div>
-    </div>
+      <AskVATWidget />
+    </>
   );
 }
