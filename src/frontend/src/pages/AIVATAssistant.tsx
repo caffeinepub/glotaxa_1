@@ -1,5 +1,7 @@
 import { Download, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import UpgradeModal from "../components/UpgradeModal";
+import UsageMeter from "../components/UsageMeter";
 import { useAuth } from "../contexts/AuthContext";
 
 const SUPABASE_AI_URL =
@@ -33,6 +35,7 @@ export default function AIVATAssistant() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [usage, setUsage] = useState(0);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Load history and usage from localStorage
@@ -54,6 +57,13 @@ export default function AIVATAssistant() {
     localStorage.setItem("ai_vat_history", JSON.stringify(messages));
     localStorage.setItem("ai_vat_usage", String(usage));
   }, [messages, usage]);
+
+  // Show upgrade modal when limit is reached
+  useEffect(() => {
+    if (usage >= limit && usage > 0) {
+      setShowUpgradeModal(true);
+    }
+  }, [usage, limit]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional scroll trigger
   useEffect(() => {
@@ -81,14 +91,13 @@ export default function AIVATAssistant() {
     }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading || isLimitReached) return;
+  const sendQuestion = async (question: string) => {
+    if (!question.trim() || isLoading || isLimitReached) return;
 
-    const question = input.trim();
     const newMsg: Message = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: question,
+      content: question.trim(),
     };
     const updated = [...messages, newMsg];
     setMessages(updated);
@@ -105,10 +114,20 @@ export default function AIVATAssistant() {
           "Content-Type": "application/json",
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ question, ...(context ? { context } : {}) }),
+        body: JSON.stringify({
+          question: question.trim(),
+          ...(context ? { context } : {}),
+        }),
       });
 
       const data = await res.json();
+
+      if (res.status === 403 && data.error === "LIMIT_REACHED") {
+        setShowUpgradeModal(true);
+        setIsLoading(false);
+        return;
+      }
+
       const answer =
         data.answer ??
         data.error ??
@@ -130,6 +149,8 @@ export default function AIVATAssistant() {
       setIsLoading(false);
     }
   };
+
+  const sendMessage = () => sendQuestion(input);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -164,228 +185,219 @@ export default function AIVATAssistant() {
   ];
 
   return (
-    <div
-      className="max-w-3xl mx-auto px-4 py-6 flex flex-col"
-      style={{ height: "calc(100vh - 140px)" }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "oklch(0.46 0.15 290 / 0.12)" }}
-          >
-            <Sparkles
-              className="w-5 h-5"
-              style={{ color: "oklch(0.46 0.15 290)" }}
-            />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">
-              AI VAT Assistant
-            </h1>
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{
-                background: "oklch(0.46 0.15 290 / 0.10)",
-                color: "oklch(0.46 0.15 290)",
-              }}
-            >
-              {userPlan.charAt(0).toUpperCase() + userPlan.slice(1)} Plan
-            </span>
-          </div>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          Usage: {usage} / {limit} queries
-        </div>
-      </div>
-
-      {/* Limit warning */}
-      {isLimitReached && (
-        <div
-          className="rounded-lg px-4 py-3 mb-3 text-sm font-medium"
-          style={{
-            background: "oklch(0.95 0.05 25)",
-            color: "oklch(0.45 0.18 25)",
-            border: "1px solid oklch(0.85 0.08 25)",
-          }}
-        >
-          You've reached your limit. Upgrade to continue.{" "}
-          <button
-            type="button"
-            onClick={() =>
-              window.dispatchEvent(new CustomEvent("navigate-to-pricing"))
-            }
-            className="underline font-semibold"
-            style={{ color: "oklch(0.45 0.18 25)" }}
-          >
-            View Plans
-          </button>
-        </div>
-      )}
-
-      {/* Login nudge for guests */}
-      {!isAuthenticated && (
-        <div
-          className="rounded-lg px-4 py-3 mb-3 text-sm"
-          style={{
-            background: "oklch(0.96 0.01 240)",
-            color: "oklch(0.40 0.04 240)",
-            border: "1px solid oklch(0.88 0.02 240)",
-          }}
-        >
-          Sign in to save your chat history and unlock higher usage limits.
-        </div>
-      )}
-
-      {/* Features info */}
+    <>
       <div
-        className="mb-3 text-sm rounded-xl border p-3"
-        style={{
-          background: "oklch(0.97 0.005 240)",
-          borderColor: "oklch(0.90 0.01 240)",
-          color: "oklch(0.35 0.02 240)",
-        }}
+        className="max-w-3xl mx-auto px-4 py-6 flex flex-col"
+        style={{ minHeight: "calc(100vh - 140px)" }}
       >
-        <strong className="text-foreground">Features:</strong>
-        <ul className="list-disc ml-5 mt-1 space-y-0.5">
-          <li>AI VAT explanations</li>
-          <li>Transaction-aware answers</li>
-          <li>Cross-border VAT insights</li>
-          <li>Export chat</li>
-        </ul>
-      </div>
-
-      {/* Prompt suggestions */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {suggestions.map((q) => (
-          <button
-            key={q}
-            type="button"
-            onClick={() => setInput(q)}
-            disabled={isLimitReached}
-            className="px-3 py-1.5 text-sm rounded-full border transition-all hover:shadow-sm disabled:opacity-40"
-            style={{
-              borderColor: "oklch(0.46 0.15 290 / 0.3)",
-              color: "oklch(0.46 0.15 290)",
-              background: "oklch(0.46 0.15 290 / 0.06)",
-            }}
-          >
-            {q}
-          </button>
-        ))}
-      </div>
-
-      {/* Chat window */}
-      <div
-        className="flex-1 overflow-y-auto rounded-xl border p-4 space-y-4 bg-card"
-        style={{ minHeight: 0 }}
-      >
-        {messages.length === 0 && (
-          <p className="text-muted-foreground text-sm">
-            Ask any VAT-related question to get started.
-          </p>
-        )}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${
-              msg.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
             <div
-              className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                msg.role === "user"
-                  ? "rounded-br-sm text-white"
-                  : "rounded-bl-sm text-foreground border"
-              }`}
-              style={
-                msg.role === "user"
-                  ? { background: "oklch(0.46 0.15 290)" }
-                  : {
-                      background: "oklch(0.97 0.005 240)",
-                      borderColor: "oklch(0.90 0.01 240)",
-                    }
-              }
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: "oklch(0.46 0.15 290 / 0.12)" }}
             >
-              {msg.content}
+              <Sparkles
+                className="w-5 h-5"
+                style={{ color: "oklch(0.46 0.15 290)" }}
+              />
             </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div
-              className="px-4 py-3 rounded-2xl rounded-bl-sm border text-sm text-muted-foreground"
-              style={{
-                background: "oklch(0.97 0.005 240)",
-                borderColor: "oklch(0.90 0.01 240)",
-              }}
-            >
-              <span className="inline-flex gap-1">
-                <span
-                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
-                  style={{ animationDelay: "0ms" }}
-                />
-                <span
-                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
-                  style={{ animationDelay: "150ms" }}
-                />
-                <span
-                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
-                  style={{ animationDelay: "300ms" }}
-                />
+            <div>
+              <h1 className="text-xl font-bold text-foreground">
+                AI VAT Assistant
+              </h1>
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{
+                  background: "oklch(0.46 0.15 290 / 0.10)",
+                  color: "oklch(0.46 0.15 290)",
+                }}
+              >
+                {userPlan.charAt(0).toUpperCase() + userPlan.slice(1)} Plan
               </span>
             </div>
           </div>
+        </div>
+
+        {/* Usage meter */}
+        <UsageMeter usage={usage} limit={limit} plan={userPlan} />
+
+        {/* Plan benefits inline */}
+        <div className="text-sm text-gray-600 mb-2">
+          Free: 5 queries • Starter: 200 • Pro: 1000 • Business: 5000
+        </div>
+
+        {/* Login nudge for guests */}
+        {!isAuthenticated && (
+          <div
+            className="rounded-lg px-4 py-3 mb-3 text-sm"
+            style={{
+              background: "oklch(0.96 0.01 240)",
+              color: "oklch(0.40 0.04 240)",
+              border: "1px solid oklch(0.88 0.02 240)",
+            }}
+          >
+            Sign in to save your chat history and unlock higher usage limits.
+          </div>
         )}
-        <div ref={chatEndRef} />
+
+        {/* Features info */}
+        <div
+          className="mb-3 text-sm rounded-xl border p-3"
+          style={{
+            background: "oklch(0.97 0.005 240)",
+            borderColor: "oklch(0.90 0.01 240)",
+            color: "oklch(0.35 0.02 240)",
+          }}
+        >
+          <strong className="text-foreground">Features:</strong>
+          <ul className="list-disc ml-5 mt-1 space-y-0.5">
+            <li>AI VAT explanations</li>
+            <li>Transaction-aware answers</li>
+            <li>Cross-border VAT insights</li>
+            <li>Export chat</li>
+          </ul>
+        </div>
+
+        {/* Prompt suggestions — clicking auto-sends the question */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          {suggestions.map((q) => (
+            <button
+              key={q}
+              type="button"
+              data-ocid="ai_vat.suggestion.button"
+              onClick={() => sendQuestion(q)}
+              disabled={isLoading || isLimitReached}
+              className="px-3 py-1.5 text-sm rounded-full border transition-all hover:shadow-sm disabled:opacity-40"
+              style={{
+                borderColor: "oklch(0.46 0.15 290 / 0.3)",
+                color: "oklch(0.46 0.15 290)",
+                background: "oklch(0.46 0.15 290 / 0.06)",
+              }}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+
+        {/* Chat window — flex-1 scrollable area */}
+        <div
+          className="flex-1 overflow-y-auto rounded-xl border p-4 space-y-4 bg-card"
+          style={{ minHeight: "200px" }}
+        >
+          {messages.length === 0 && (
+            <p className="text-muted-foreground text-sm">
+              Ask any VAT-related question to get started, or click a suggestion
+              above.
+            </p>
+          )}
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex ${
+                msg.role === "user" ? "justify-end" : "justify-start"
+              }`}
+            >
+              <div
+                className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                  msg.role === "user"
+                    ? "rounded-br-sm text-white"
+                    : "rounded-bl-sm text-foreground border"
+                }`}
+                style={
+                  msg.role === "user"
+                    ? { background: "oklch(0.46 0.15 290)" }
+                    : {
+                        background: "oklch(0.97 0.005 240)",
+                        borderColor: "oklch(0.90 0.01 240)",
+                      }
+                }
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div
+                className="px-4 py-3 rounded-2xl rounded-bl-sm border text-sm text-muted-foreground"
+                style={{
+                  background: "oklch(0.97 0.005 240)",
+                  borderColor: "oklch(0.90 0.01 240)",
+                }}
+              >
+                <span className="inline-flex gap-1">
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  />
+                </span>
+              </div>
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Input row — always visible below the chat window */}
+        <div className="flex gap-2 mt-4">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isLoading || isLimitReached}
+            data-ocid="ai_vat.input"
+            className="flex-1 border rounded-xl px-4 py-3 text-sm bg-card focus:outline-none focus:ring-2 transition-all disabled:opacity-50"
+            style={{ borderColor: "oklch(0.85 0.02 240)" }}
+            placeholder="Ask VAT question… (Enter to send)"
+          />
+          <button
+            type="button"
+            data-ocid="ai_vat.submit_button"
+            onClick={sendMessage}
+            disabled={isLoading || !input.trim() || isLimitReached}
+            className="px-5 py-3 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-50"
+            style={{ background: "oklch(0.46 0.15 290)" }}
+          >
+            Send
+          </button>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-4 mt-3 pb-4">
+          <button
+            type="button"
+            onClick={exportChat}
+            disabled={messages.length === 0}
+            className="flex items-center gap-1.5 text-sm font-medium transition-colors disabled:opacity-40"
+            style={{ color: "oklch(0.46 0.15 290)" }}
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export Chat
+          </button>
+          <button
+            type="button"
+            onClick={clearHistory}
+            disabled={messages.length === 0}
+            className="flex items-center gap-1.5 text-sm font-medium transition-colors disabled:opacity-40"
+            style={{ color: "oklch(0.45 0.18 25)" }}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Clear History
+          </button>
+        </div>
       </div>
 
-      {/* Input */}
-      <div className="flex gap-2 mt-4">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={isLoading || isLimitReached}
-          className="flex-1 border rounded-xl px-4 py-3 text-sm bg-card focus:outline-none focus:ring-2 transition-all disabled:opacity-50"
-          style={{ borderColor: "oklch(0.85 0.02 240)" }}
-          placeholder="Ask VAT question… (Enter to send)"
-        />
-        <button
-          type="button"
-          onClick={sendMessage}
-          disabled={isLoading || !input.trim() || isLimitReached}
-          className="px-5 py-3 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-50"
-          style={{ background: "oklch(0.46 0.15 290)" }}
-        >
-          Send
-        </button>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-4 mt-3">
-        <button
-          type="button"
-          onClick={exportChat}
-          disabled={messages.length === 0}
-          className="flex items-center gap-1.5 text-sm font-medium transition-colors disabled:opacity-40"
-          style={{ color: "oklch(0.46 0.15 290)" }}
-        >
-          <Download className="w-3.5 h-3.5" />
-          Export Chat
-        </button>
-        <button
-          type="button"
-          onClick={clearHistory}
-          disabled={messages.length === 0}
-          className="flex items-center gap-1.5 text-sm font-medium transition-colors disabled:opacity-40"
-          style={{ color: "oklch(0.45 0.18 25)" }}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          Clear History
-        </button>
-      </div>
-    </div>
+      {showUpgradeModal && (
+        <UpgradeModal onClose={() => setShowUpgradeModal(false)} />
+      )}
+    </>
   );
 }

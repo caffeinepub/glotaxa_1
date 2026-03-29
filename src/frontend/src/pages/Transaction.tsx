@@ -1,12 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  FileText,
-  Info,
-  Loader2,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileText, Info } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { InvoicePrePopData, TabName } from "../App";
 import { CompliancePanel } from "../components/CompliancePanel";
@@ -14,12 +7,11 @@ import { TransportVatModal } from "../components/TransportVatModal";
 import { VAT_RULES } from "../data/vatRules";
 import type { CountryCode } from "../data/vatRules";
 import { VAT_CATEGORIES, calculateVAT } from "../engine/vatEngine";
-import { askAIVatExplainer } from "../utils/aiVatExplainer";
 import { calculateComplianceScore } from "../utils/complianceScoreCalculator";
 import { riskDetector } from "../utils/riskDetector";
 import { explainVATDecision } from "../utils/vatLogicExplainer";
 
-const SUPABASE_ANON_KEY =
+const _SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM";
 
 interface TransactionProps {
@@ -53,15 +45,6 @@ export default function Transaction({
   const [hasCalculated, setHasCalculated] = useState(false);
   const [showTransportModal, setShowTransportModal] = useState(false);
   const [isPublicTransport, setIsPublicTransport] = useState(false);
-  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
-
-  // Freeform Q&A state
-  const [userQuestion, setUserQuestion] = useState("");
-  const [freeformAnswer, setFreeformAnswer] = useState("");
-  const [freeformLoading, setFreeformLoading] = useState(false);
-  const [freeformError, setFreeformError] = useState<string | null>(null);
 
   const supplierCountry = (selectedCountry as CountryCode) || "DE";
   const countryRule = VAT_RULES[supplierCountry];
@@ -100,7 +83,6 @@ export default function Transaction({
       );
       setCalculationResult(result);
       setHasCalculated(true);
-      setAiExplanation(null);
       // Save transaction context for AI VAT Assistant
       try {
         const saved = localStorage.getItem("vat_transactions");
@@ -115,71 +97,8 @@ export default function Transaction({
       } catch {
         /* ignore */
       }
-      setAiError(null);
     } catch {
       // ignore calculation errors
-    }
-  };
-
-  const handleAskAI = async () => {
-    if (!calculationResult) return;
-    setAiLoading(true);
-    setAiError(null);
-    setAiExplanation(null);
-    try {
-      const answer = await askAIVatExplainer({
-        sellerCountry: supplierCountry,
-        buyerCountry,
-        buyerType,
-        category,
-        vatRate: calculationResult.vatRate,
-        vatType: calculationResult.vatType,
-        netAmount,
-        vatAmount: calculationResult.vatAmount,
-        grossAmount: calculationResult.total,
-        isOSS: calculationResult.isOSS,
-      });
-      setAiExplanation(answer);
-    } catch (err) {
-      setAiError(
-        err instanceof Error
-          ? err.message
-          : "Failed to get AI explanation. Please try again.",
-      );
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const askAI = async () => {
-    if (!userQuestion.trim()) return;
-    setFreeformLoading(true);
-    setFreeformError(null);
-    setFreeformAnswer("");
-    try {
-      const response = await fetch(
-        "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/ai-vat",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ question: userQuestion }),
-        },
-      );
-      if (!response.ok) {
-        const errText = await response.text().catch(() => "Unknown error");
-        setFreeformError(`AI service error (${response.status}): ${errText}`);
-        return;
-      }
-      const data = await response.json();
-      setFreeformAnswer(data.answer ?? "No answer received");
-    } catch (error) {
-      console.error("AI Error:", error);
-      setFreeformError("Something went wrong");
-    } finally {
-      setFreeformLoading(false);
     }
   };
 
@@ -718,110 +637,6 @@ export default function Transaction({
           )}
         </div>
       )}
-
-      {/* AI VAT Explainer Panel (transaction-specific) */}
-      {calculationResult && hasCalculated && (
-        <div className="mt-6 bg-card border border-border rounded-xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <span className="text-base">🤖</span>
-              AI VAT Assistant
-            </h3>
-            <Button
-              onClick={handleAskAI}
-              disabled={aiLoading}
-              size="sm"
-              variant="outline"
-              className="text-xs"
-              data-ocid="transaction.ai_explain.button"
-            >
-              {aiLoading ? "Asking AI..." : "Ask AI to Explain"}
-            </Button>
-          </div>
-          {aiLoading && (
-            <p className="text-xs text-muted-foreground animate-pulse">
-              Consulting VAT expert AI...
-            </p>
-          )}
-          {aiError && <p className="text-xs text-destructive">{aiError}</p>}
-          {aiExplanation && (
-            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed border-t border-border pt-3">
-              {aiExplanation}
-            </pre>
-          )}
-          {!aiLoading && !aiExplanation && !aiError && (
-            <p className="text-xs text-muted-foreground">
-              Click "Ask AI to Explain" to get a detailed AI-powered VAT
-              analysis for this transaction.
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Ask a VAT Question — always visible freeform Q&A */}
-      <div className="mt-6 bg-card border border-border rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <span className="text-base">💬</span>
-          Ask a VAT Question
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          Have a VAT question? Ask our AI assistant directly — no calculation
-          required.
-        </p>
-
-        <Textarea
-          value={userQuestion}
-          onChange={(e) => setUserQuestion(e.target.value)}
-          placeholder="Ask a VAT question..."
-          rows={4}
-          className="w-full resize-none text-sm"
-          data-ocid="transaction.vat_question.textarea"
-        />
-
-        <Button
-          onClick={askAI}
-          disabled={freeformLoading || !userQuestion.trim()}
-          size="sm"
-          className="flex items-center gap-2"
-          data-ocid="transaction.ask_vat.button"
-        >
-          {freeformLoading ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Asking...
-            </>
-          ) : (
-            "Ask"
-          )}
-        </Button>
-
-        {freeformLoading && (
-          <p
-            className="text-xs text-muted-foreground animate-pulse"
-            data-ocid="transaction.ask_vat.loading_state"
-          >
-            Getting your answer...
-          </p>
-        )}
-
-        {freeformError && (
-          <p
-            className="text-xs text-destructive"
-            data-ocid="transaction.ask_vat.error_state"
-          >
-            {freeformError}
-          </p>
-        )}
-
-        {freeformAnswer && (
-          <pre
-            className="text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed border-t border-border pt-3"
-            data-ocid="transaction.ask_vat.success_state"
-          >
-            {freeformAnswer}
-          </pre>
-        )}
-      </div>
     </div>
   );
 }

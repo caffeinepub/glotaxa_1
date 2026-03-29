@@ -8,8 +8,9 @@ export default function Terms() {
 
       <h2>1. Introduction</h2>
       <p>
-        Glotaxa provides an AI powered invoicing and tax automation platform. By
-        using this service you agree to these terms.
+        GD Enterprises operates the Glotaxa platform, an AI powered invoicing
+        and tax automation service. By using this service you agree to these
+        terms.
       </p>
 
       <h2>2. User Accounts</h2>
@@ -20,8 +21,9 @@ export default function Terms() {
 
       <h2>3. Subscription Plans</h2>
       <p>
-        Glotaxa provides free and paid plans. Paid subscriptions are processed
-        through Paddle.
+        GD Enterprises provides free and paid plans. Paid subscriptions are
+        processed through Paddle, our authorised reseller and Merchant of
+        Record.
       </p>
       <ul>
         <li>Free plan: limited invoices per month</li>
@@ -46,8 +48,8 @@ export default function Terms() {
 
       <h2>6. Financial Disclaimer</h2>
       <p>
-        Glotaxa does not provide tax, accounting, or legal advice. Users are
-        responsible for verifying financial data.
+        GD Enterprises does not provide tax, accounting, or legal advice. Users
+        are responsible for verifying financial data.
       </p>
 
       <h2>7. Termination</h2>
@@ -55,8 +57,8 @@ export default function Terms() {
 
       <h2>8. Limitation of Liability</h2>
       <p>
-        Glotaxa is not responsible for financial loss resulting from use of the
-        platform.
+        GD Enterprises is not responsible for financial loss resulting from use
+        of the platform.
       </p>
     </LegalLayout>
   );

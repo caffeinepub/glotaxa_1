@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { InvoicePrePopData, TabName } from "../App";
+import UpgradeModal from "../components/UpgradeModal";
 import { supabase, useAuth } from "../contexts/AuthContext";
 import { VAT_RULES } from "../data/vatRules";
 import type { CountryCode } from "../data/vatRules";
@@ -100,12 +102,27 @@ function getVatRateForCategory(
   }
 }
 
+const WIDGET_PLAN_LIMITS: Record<string, number> = {
+  free: 5,
+  starter: 200,
+  pro: 1000,
+  business: 5000,
+};
+
 function AskVATWidget() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const { accessToken } = useAuth();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const { accessToken, currentPlan } = useAuth();
+  const userPlan = currentPlan || "free";
+  const aiLimit = WIDGET_PLAN_LIMITS[userPlan] ?? 5;
+  const aiUsage = Number.parseInt(
+    localStorage.getItem("ai_vat_usage") ?? "0",
+    10,
+  );
+  const isAILimitReached = aiUsage >= aiLimit;
 
   const askAI = async () => {
     if (!question.trim()) return;
@@ -123,6 +140,12 @@ function AskVATWidget() {
         },
       );
       const data = await res.json();
+
+      if (res.status === 403 && data.error === "LIMIT_REACHED") {
+        setShowUpgradeModal(true);
+        return;
+      }
+
       setAnswer(data.answer ?? "Sorry, could not get a response.");
     } catch {
       setAnswer("Something went wrong. Please try again.");
@@ -169,24 +192,33 @@ function AskVATWidget() {
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && askAI()}
           placeholder="Quick VAT question..."
-          className="w-full border rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none"
+          disabled={isAILimitReached}
+          className="w-full border rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none disabled:bg-gray-100"
           style={{ borderColor: "oklch(0.85 0.02 255)" }}
         />
         <button
           type="button"
           onClick={askAI}
-          disabled={isAsking}
-          className="w-full py-2 rounded-lg text-white text-sm font-medium transition-opacity disabled:opacity-60"
+          disabled={isAsking || isAILimitReached}
+          className="w-full py-2 rounded-lg text-white text-sm font-medium transition-opacity disabled:opacity-60 disabled:bg-gray-400"
           style={{ background: "oklch(0.42 0.14 255)" }}
         >
           {isAsking ? "Asking..." : "Ask"}
         </button>
-        {answer && (
+        {isAILimitReached && (
+          <p className="text-red-600 text-xs mt-2">
+            AI limit reached. Upgrade your plan.
+          </p>
+        )}
+        {answer && !isAILimitReached && (
           <div className="mt-3 text-sm text-gray-700 bg-gray-50 rounded-lg p-3 leading-relaxed">
             {answer}
           </div>
         )}
       </div>
+      {showUpgradeModal && (
+        <UpgradeModal onClose={() => setShowUpgradeModal(false)} />
+      )}
     </div>
   );
 }
@@ -244,6 +276,11 @@ export default function Invoice({
   );
   const [notes, setNotes] = useState("");
 
+  // Inline Ask VAT Question state
+  const [invoiceQuestion, setInvoiceQuestion] = useState("");
+  const [invoiceAnswer, setInvoiceAnswer] = useState("");
+  const [invoiceAILoading, setInvoiceAILoading] = useState(false);
+  const [invoiceAIError, setInvoiceAIError] = useState<string | null>(null);
   // Generate Invoice state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -428,6 +465,39 @@ export default function Invoice({
   // 1. Limit check via create_invoice_secure RPC (server-side authoritative check)
   // 2. Insert invoice into invoices table
   // 3. For each line item: call create_invoice_item_secure first, then insert into invoice_items
+
+  const handleInvoiceAskAI = async () => {
+    if (!invoiceQuestion.trim()) return;
+    setInvoiceAILoading(true);
+    setInvoiceAIError(null);
+    setInvoiceAnswer("");
+    try {
+      const response = await fetch(
+        "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/ai-vat",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken || ""}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ question: invoiceQuestion, simple: true }),
+        },
+      );
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "Unknown error");
+        setInvoiceAIError(`AI service error (${response.status}): ${errText}`);
+        return;
+      }
+      const data = await response.json();
+      setInvoiceAnswer(data.answer ?? "No answer received");
+    } catch (error) {
+      console.error("AI Error:", error);
+      setInvoiceAIError("Something went wrong. Please try again.");
+    } finally {
+      setInvoiceAILoading(false);
+    }
+  };
+
   const handleGenerateInvoice = async () => {
     if (!isAuthenticated || !accessToken || !userId) {
       setGenerateError(
@@ -1044,6 +1114,73 @@ export default function Invoice({
               </div>
             </div>
           )}
+
+          {/* Inline Ask a VAT Question — strategic placement before invoice generation */}
+          <div className="bg-card border border-border rounded-xl p-5 space-y-3 mb-6">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span className="text-base">💬</span>
+                Ask a VAT Question
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Have a doubt before generating? Ask our AI assistant.
+              </p>
+            </div>
+
+            <Textarea
+              value={invoiceQuestion}
+              onChange={(e) => setInvoiceQuestion(e.target.value)}
+              placeholder="e.g. Do I need to apply reverse charge here?"
+              rows={3}
+              className="w-full resize-none text-sm"
+              data-ocid="invoice.vat_question.textarea"
+            />
+
+            <Button
+              onClick={handleInvoiceAskAI}
+              disabled={invoiceAILoading || !invoiceQuestion.trim()}
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-2"
+              data-ocid="invoice.ask_vat.button"
+            >
+              {invoiceAILoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Asking...
+                </>
+              ) : (
+                "Ask"
+              )}
+            </Button>
+
+            {invoiceAILoading && (
+              <p
+                className="text-xs text-muted-foreground animate-pulse"
+                data-ocid="invoice.ask_vat.loading_state"
+              >
+                Getting your answer...
+              </p>
+            )}
+
+            {invoiceAIError && (
+              <p
+                className="text-xs text-destructive"
+                data-ocid="invoice.ask_vat.error_state"
+              >
+                {invoiceAIError}
+              </p>
+            )}
+
+            {invoiceAnswer && (
+              <pre
+                className="text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed border-t border-border pt-3"
+                data-ocid="invoice.ask_vat.success_state"
+              >
+                {invoiceAnswer}
+              </pre>
+            )}
+          </div>
 
           {/* Generate Invoice via Cloud */}
           {isAuthenticated && (

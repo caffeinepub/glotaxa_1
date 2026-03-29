@@ -1,15 +1,5 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Check,
-  CheckCircle,
-  Gift,
-  Loader2,
-  Minus,
-  Star,
-  Trophy,
-  Zap,
-} from "lucide-react";
+import { CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "../contexts/AuthContext";
@@ -29,37 +19,32 @@ const SUPABASE_URL = "https://cvelhiuefcykduwgnjjs.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM";
 
-interface PricingPlan {
-  id: string;
-  icon: React.ReactNode;
-  title: string;
+interface Plan {
+  name: string;
   price: string;
-  period: string;
+  tag?: string;
   description: string;
-  features: string[];
+  core: string[];
   limits?: string[];
-  highlightTag?: string;
-  buttonLabel: string;
-  isPopular?: boolean;
-  isBestValue?: boolean;
+  ai: string[];
+  highlight?: boolean;
+  button: string;
+  disabled?: boolean;
+  paddleKey?: string;
 }
 
-const plans: PricingPlan[] = [
+const plans: Plan[] = [
   {
-    id: "free",
-    icon: <Gift className="w-5 h-5" />,
-    title: "FREE",
+    name: "Free",
     price: "€0",
-    period: "/ month",
     description: "Perfect to get started with VAT-compliant invoicing.",
-    features: [
+    core: [
       "5 invoices per month",
       "3 line items per invoice",
       "UK VAT support (0%, Exempt, 20%)",
       "EU Intra-EU B2B (Reverse Charge)",
       "UBL-XML export (Peppol ready)",
       "PDF invoice download",
-      "Email OTP login (secure)",
       "Single business profile",
     ],
     limits: [
@@ -67,16 +52,16 @@ const plans: PricingPlan[] = [
       "No bulk invoices",
       "No VAT auto-detection",
     ],
-    buttonLabel: "Free Plan",
+    ai: ["5 AI queries/session"],
+    button: "Free Plan",
+    disabled: true,
   },
   {
-    id: "starter",
-    icon: <Zap className="w-5 h-5" />,
-    title: "STARTER",
+    name: "Starter",
     price: "€2.99",
-    period: "/ month",
+    tag: "Most Popular for Freelancers",
     description: "For freelancers and solo founders.",
-    features: [
+    core: [
       "30 invoices per month",
       "10 line items per invoice",
       "Auto VAT rate suggestion (UK + EU)",
@@ -85,39 +70,38 @@ const plans: PricingPlan[] = [
       "Customer VAT ID validation",
       "Remove Glotaxa branding",
     ],
-    highlightTag: "Most Popular for Freelancers",
-    buttonLabel: "Upgrade to Starter",
-    isPopular: true,
+    ai: ["200 AI queries/session", "Transaction-aware AI answers"],
+    highlight: true,
+    button: "Upgrade to Starter",
+    paddleKey: "starter",
   },
   {
-    id: "pro",
-    icon: <Star className="w-5 h-5" />,
-    title: "PRO",
+    name: "Pro",
     price: "€4.99",
-    period: "/ month",
+    tag: "Best Value",
     description: "Built for growing businesses handling VAT seriously.",
-    features: [
+    core: [
       "Unlimited invoices",
       "Unlimited line items",
       "UK + EU VAT auto-classification",
       "OSS VAT ready invoices",
       "Multi-currency invoices",
-      "Invoice duplication",
       "Export monthly VAT summary",
       "Priority email support",
     ],
-    highlightTag: "Best Value",
-    buttonLabel: "Upgrade to Pro",
-    isBestValue: true,
+    ai: [
+      "1,000 AI queries/session",
+      "Transaction-aware AI answers",
+      "Export chat history",
+    ],
+    button: "Upgrade to Pro",
+    paddleKey: "pro",
   },
   {
-    id: "business",
-    icon: <Trophy className="w-5 h-5" />,
-    title: "BUSINESS",
+    name: "Business",
     price: "€9.99",
-    period: "/ month",
     description: "For accountants, agencies, and high-volume sellers.",
-    features: [
+    core: [
       "Everything in Pro",
       "Multiple businesses (up to 5)",
       "Team access (3 users)",
@@ -125,161 +109,20 @@ const plans: PricingPlan[] = [
       "Quarterly OSS VAT report export",
       "VAT Compliance Score",
       "API access (beta)",
-      "Priority support",
     ],
-    buttonLabel: "Upgrade to Business",
+    ai: [
+      "5,000 AI queries/session",
+      "Transaction-aware AI answers",
+      "Export chat history",
+      "Priority AI support",
+    ],
+    button: "Upgrade to Business",
+    paddleKey: "business",
   },
 ];
 
-function PlanCard({
-  plan,
-  currentPlan,
-  onUpgrade,
-  isUpgrading,
-  upgradeSuccess,
-}: {
-  plan: PricingPlan;
-  currentPlan: string | null;
-  onUpgrade: (planId: string) => void;
-  isUpgrading: boolean;
-  upgradeSuccess: boolean;
-}) {
-  const isHighlighted = plan.isPopular || plan.isBestValue;
-  const isCurrentPlan = (currentPlan ?? "free").toLowerCase() === plan.id;
-
-  return (
-    <div
-      className={`relative flex flex-col rounded-2xl border transition-shadow ${
-        isHighlighted
-          ? "border-primary shadow-lg shadow-primary/10 bg-card"
-          : "border-border bg-card hover:shadow-md"
-      }`}
-    >
-      <div className="p-6 pb-4">
-        {/* Inline Highlight Badge */}
-        {plan.highlightTag && (
-          <div className="mb-3">
-            <Badge
-              className={`px-3 py-1 text-xs font-semibold whitespace-nowrap ${
-                plan.isPopular
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-accent text-accent-foreground"
-              }`}
-            >
-              {plan.highlightTag}
-            </Badge>
-          </div>
-        )}
-
-        {/* Icon + Title */}
-        <div className="flex items-center gap-2 mb-3">
-          <span
-            className={`p-2 rounded-lg ${
-              plan.isPopular
-                ? "bg-primary/10 text-primary"
-                : plan.isBestValue
-                  ? "bg-accent/20 text-accent-foreground"
-                  : plan.id === "business"
-                    ? "bg-muted text-foreground"
-                    : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {plan.icon}
-          </span>
-          <h3 className="text-lg font-bold tracking-wide text-foreground">
-            {plan.title}
-          </h3>
-          {isCurrentPlan && (
-            <Badge variant="outline" className="ml-auto text-xs">
-              Current
-            </Badge>
-          )}
-        </div>
-
-        {/* Price */}
-        <div className="flex items-baseline gap-1 mb-2">
-          <span className="text-4xl font-extrabold text-foreground">
-            {plan.price}
-          </span>
-          <span className="text-sm text-muted-foreground">{plan.period}</span>
-        </div>
-
-        {/* Description */}
-        <p className="text-sm text-muted-foreground mb-5">{plan.description}</p>
-
-        {/* CTA Button */}
-        {isCurrentPlan ? (
-          <Button
-            className="w-full"
-            variant="outline"
-            disabled
-            data-ocid={`pricing.${plan.id}.button`}
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Current Plan
-          </Button>
-        ) : (
-          <Button
-            className="w-full"
-            variant={isHighlighted ? "default" : "outline"}
-            disabled={isUpgrading}
-            onClick={() => onUpgrade(plan.id)}
-            data-ocid={`pricing.${plan.id}.primary_button`}
-          >
-            {isUpgrading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Upgrading…
-              </>
-            ) : upgradeSuccess ? (
-              <>
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Upgraded!
-              </>
-            ) : (
-              plan.buttonLabel
-            )}
-          </Button>
-        )}
-      </div>
-
-      {/* Divider */}
-      <div className="mx-6 border-t border-border" />
-
-      {/* Features */}
-      <div className="p-6 pt-4 flex-1">
-        <ul className="space-y-2.5">
-          {plan.features.map((feature) => (
-            <li key={feature} className="flex items-start gap-2.5">
-              <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <span className="text-sm text-foreground">{feature}</span>
-            </li>
-          ))}
-        </ul>
-
-        {plan.limits && plan.limits.length > 0 && (
-          <div className="mt-5 pt-4 border-t border-border/60">
-            <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
-              Limits
-            </p>
-            <ul className="space-y-1.5">
-              {plan.limits.map((limit) => (
-                <li key={limit} className="flex items-start gap-2">
-                  <Minus className="w-3.5 h-3.5 text-muted-foreground/60 mt-0.5 shrink-0" />
-                  <span className="text-xs text-muted-foreground">{limit}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function Pricing() {
-  const { userId, accessToken, currentPlan, setCurrentPlan, isAuthenticated } =
-    useAuth();
+  const { userId, accessToken, setCurrentPlan, isAuthenticated } = useAuth();
   const [upgradingPlanId, setUpgradingPlanId] = useState<string | null>(null);
   const [successPlanId, setSuccessPlanId] = useState<string | null>(null);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
@@ -335,10 +178,9 @@ export default function Pricing() {
       );
       return;
     }
-    const email = userEmail;
     window.Paddle.Checkout.open({
       items: [{ priceId: PADDLE_PRICE_IDS.starter, quantity: 1 }],
-      ...(email ? { customer: { email } } : {}),
+      ...(userEmail ? { customer: { email: userEmail } } : {}),
     });
   };
 
@@ -349,10 +191,9 @@ export default function Pricing() {
       );
       return;
     }
-    const email = userEmail;
     window.Paddle.Checkout.open({
       items: [{ priceId: PADDLE_PRICE_IDS.pro, quantity: 1 }],
-      ...(email ? { customer: { email } } : {}),
+      ...(userEmail ? { customer: { email: userEmail } } : {}),
     });
   };
 
@@ -363,10 +204,9 @@ export default function Pricing() {
       );
       return;
     }
-    const email = userEmail;
     window.Paddle.Checkout.open({
       items: [{ priceId: PADDLE_PRICE_IDS.business, quantity: 1 }],
-      ...(email ? { customer: { email } } : {}),
+      ...(userEmail ? { customer: { email: userEmail } } : {}),
     });
   };
 
@@ -476,29 +316,107 @@ export default function Pricing() {
       {/* Pricing Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
         {plans.map((plan) => (
-          <PlanCard
-            key={plan.id}
-            plan={plan}
-            currentPlan={currentPlan}
-            onUpgrade={handleUpgrade}
-            isUpgrading={upgradingPlanId === plan.id}
-            upgradeSuccess={successPlanId === plan.id}
-          />
+          <div
+            key={plan.name}
+            className={`p-6 rounded-2xl shadow bg-white ${
+              plan.highlight
+                ? "border-2 border-blue-600 scale-105"
+                : "border border-gray-200"
+            }`}
+            data-ocid={`pricing.${plan.name.toLowerCase()}.card`}
+          >
+            {/* TAG */}
+            {plan.tag && (
+              <div className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded mb-2 inline-block">
+                {plan.tag}
+              </div>
+            )}
+
+            {/* TITLE */}
+            <h2 className="text-xl font-bold">{plan.name}</h2>
+
+            {/* PRICE */}
+            <p className="text-2xl font-semibold mt-2">{plan.price} / month</p>
+
+            {/* DESCRIPTION */}
+            <p className="text-sm text-gray-500 mb-4">{plan.description}</p>
+
+            {/* CORE FEATURES */}
+            <p className="font-semibold text-gray-700 mb-1">Core Features</p>
+            <ul className="text-sm mb-3 space-y-1">
+              {plan.core.map((f) => (
+                <li key={f}>✔ {f}</li>
+              ))}
+            </ul>
+
+            {/* LIMITS (ONLY FREE) */}
+            {plan.limits && (
+              <>
+                <p className="text-xs text-gray-500 mt-2 mb-1">Limits</p>
+                <ul className="text-xs text-gray-500 mb-3 space-y-1">
+                  {plan.limits.map((l) => (
+                    <li key={l}>• {l}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {/* AI FEATURES */}
+            <p className="font-semibold text-blue-600 mb-1">AI VAT Assistant</p>
+            <ul className="text-sm mb-4 space-y-1">
+              {plan.ai.map((f) => (
+                <li key={f}>✔ {f}</li>
+              ))}
+            </ul>
+
+            {/* BUTTON */}
+            <Button
+              disabled={plan.disabled || upgradingPlanId === plan.paddleKey}
+              onClick={() => plan.paddleKey && handleUpgrade(plan.paddleKey)}
+              className={`w-full py-2 rounded font-medium transition-colors ${
+                plan.highlight
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+              } ${plan.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+              data-ocid={`pricing.${plan.name.toLowerCase()}.primary_button`}
+            >
+              {upgradingPlanId === plan.paddleKey ? "Upgrading…" : plan.button}
+            </Button>
+          </div>
         ))}
       </div>
 
-      {/* Footer — support email only */}
-      <footer className="mt-16 pt-8 border-t border-border text-center">
-        <p className="text-xs text-muted-foreground mb-1">
-          © {new Date().getFullYear()} Glotaxa
+      {/* Footer */}
+      <footer className="mt-16 pt-8 border-t border-border text-center space-y-2">
+        <p className="text-xs text-muted-foreground">
+          © {new Date().getFullYear()} GD Enterprises
         </p>
-        <a
-          href="mailto:gdenterprises005@gmail.com"
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          data-ocid="pricing.support.link"
-        >
-          gdenterprises005@gmail.com
-        </a>
+        <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+          <a href="/terms" className="hover:text-foreground transition-colors">
+            Terms
+          </a>
+          <span>|</span>
+          <a
+            href="/privacy"
+            className="hover:text-foreground transition-colors"
+          >
+            Privacy
+          </a>
+          <span>|</span>
+          <a href="/refund" className="hover:text-foreground transition-colors">
+            Refund Policy
+          </a>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Support:{" "}
+          <a
+            href="mailto:gdenterprises005@gmail.com"
+            className="hover:text-foreground transition-colors"
+            data-ocid="pricing.support.link"
+          >
+            gdenterprises005@gmail.com
+          </a>
+        </p>
       </footer>
     </div>
   );
