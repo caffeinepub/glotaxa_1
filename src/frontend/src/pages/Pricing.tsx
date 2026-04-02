@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { useAuth } from "../contexts/AuthContext";
+import { supabase, useAuth } from "../contexts/AuthContext";
 
 // ---------------------------------------------------------------------------
 // Paddle configuration
@@ -230,7 +230,7 @@ export default function Pricing() {
       return;
     }
 
-    // Free plan: update Supabase directly
+    // Free plan: update Supabase using supabase client
     if (!isAuthenticated || !userId || !accessToken) {
       setUpgradeError("You must be signed in to change your plan.");
       return;
@@ -239,30 +239,19 @@ export default function Pricing() {
     setUpgradingPlanId(planId);
 
     try {
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/users?id=eq.${userId}`,
-        {
-          method: "PATCH",
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ plan: planId }),
-        },
-      );
+      const { error } = await supabase
+        .from("users")
+        .update({ plan: planId })
+        .eq("id", userId);
 
-      if (response.ok) {
+      if (error) {
+        setUpgradeError(
+          error.message || "Failed to update plan. Please try again.",
+        );
+      } else {
         setCurrentPlan(planId);
         setSuccessPlanId(planId);
         setTimeout(() => setSuccessPlanId(null), 3000);
-      } else {
-        const data = await response.json().catch(() => ({}));
-        setUpgradeError(
-          data?.message ||
-            data?.error ||
-            "Failed to update plan. Please try again.",
-        );
       }
     } catch {
       setUpgradeError(

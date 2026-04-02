@@ -16,10 +16,6 @@ import {
 import { useEffect, useState } from "react";
 import { supabase, useAuth } from "../contexts/AuthContext";
 
-const SUPABASE_URL = "https://cvelhiuefcykduwgnjjs.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZWxoaXVlZmN5a2R1d2duampzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTUzNjcsImV4cCI6MjA4NzgzMTM2N30.dNtP6PMMTt8RMZhw-ANvATGgLL6FlsuffVcR9jES-rM";
-
 interface DashboardProps {
   onNavigate: (tab: string) => void;
   onLogout: () => void;
@@ -55,29 +51,23 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
     if (!userId || !accessToken) return;
 
     const fetchPlanAndUsage = async () => {
-      // Fetch plan
+      // Fetch plan using supabase client
       if (!currentPlan) {
         setIsLoadingPlan(true);
         setPlanError(null);
         try {
-          const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/users?id=eq.${userId}&select=plan`,
-            {
-              headers: {
-                apikey: SUPABASE_ANON_KEY,
-                Authorization: `Bearer ${accessToken}`,
-              },
-            },
-          );
-          if (response.ok) {
-            const data = await response.json();
-            if (Array.isArray(data) && data.length > 0) {
-              setCurrentPlan(data[0].plan ?? "free");
-            } else {
-              setCurrentPlan("free");
-            }
-          } else {
+          const { data, error } = await supabase
+            .from("users")
+            .select("plan")
+            .eq("id", userId)
+            .single();
+
+          if (error) {
             setPlanError("Could not load your plan. Please refresh.");
+          } else if (data) {
+            setCurrentPlan((data.plan as string) ?? "free");
+          } else {
+            setCurrentPlan("free");
           }
         } catch {
           setPlanError("Network error loading plan.");
