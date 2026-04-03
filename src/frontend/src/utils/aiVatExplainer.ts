@@ -17,7 +17,19 @@ export interface AIVatInput {
   isOSS: boolean;
 }
 
-export async function askAIVatExplainer(input: AIVatInput): Promise<string> {
+/**
+ * Returns the best available auth token.
+ * Prefers the logged-in user's session token (passed in from AuthContext),
+ * falling back to the public anon key for unauthenticated calls.
+ */
+function getAuthToken(sessionToken?: string | null): string {
+  return sessionToken || SUPABASE_ANON_KEY;
+}
+
+export async function askAIVatExplainer(
+  input: AIVatInput,
+  sessionToken?: string | null,
+): Promise<string> {
   const question = `
 I have a VAT transaction with the following details:
 - Seller Country: ${input.sellerCountry}
@@ -41,7 +53,7 @@ Please explain:
   const response = await fetch(AI_VAT_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      Authorization: `Bearer ${getAuthToken(sessionToken)}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ question }),
@@ -56,11 +68,14 @@ Please explain:
   return data.answer ?? data.message ?? JSON.stringify(data);
 }
 
-export async function askFreeformQuestion(question: string): Promise<string> {
+export async function askFreeformQuestion(
+  question: string,
+  sessionToken?: string | null,
+): Promise<string> {
   const response = await fetch(AI_VAT_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      Authorization: `Bearer ${getAuthToken(sessionToken)}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ question }),
