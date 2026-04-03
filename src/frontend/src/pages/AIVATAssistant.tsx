@@ -3,6 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import UpgradeModal from "../components/UpgradeModal";
 import UsageMeter from "../components/UsageMeter";
 import { useAuth } from "../contexts/AuthContext";
+import {
+  fetchServerUsage,
+  incrementServerUsage,
+} from "../utils/aiUsageTracker";
 
 const SUPABASE_AI_URL =
   "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/ai-vat";
@@ -27,7 +31,7 @@ interface StoredTransaction {
 }
 
 export default function AIVATAssistant() {
-  const { isAuthenticated, accessToken, currentPlan } = useAuth();
+  const { isAuthenticated, accessToken, currentPlan, userId } = useAuth();
   const userPlan = currentPlan || "free";
   const limit = PLAN_LIMITS[userPlan] ?? PLAN_LIMITS.free;
 
@@ -38,7 +42,7 @@ export default function AIVATAssistant() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Load history and usage from localStorage
+  // Load chat history and local usage count from localStorage
   useEffect(() => {
     const savedHistory = localStorage.getItem("ai_vat_history");
     const savedUsage = localStorage.getItem("ai_vat_usage");
@@ -49,10 +53,24 @@ export default function AIVATAssistant() {
         // ignore
       }
     }
-    if (savedUsage) setUsage(Number.parseInt(savedUsage, 10));
-  }, []);
+    const localCount = savedUsage ? Number.parseInt(savedUsage, 10) : 0;
 
-  // Save history and usage to localStorage
+    // For authenticated users: fetch server-side usage and take the higher value.
+    // This prevents localStorage clearing from resetting the free tier limit.
+    if (userId) {
+      fetchServerUsage(userId).then((serverCount) => {
+        const trueUsage = Math.max(localCount, serverCount);
+        setUsage(trueUsage);
+        // Sync localStorage with the authoritative server count
+        localStorage.setItem("ai_vat_usage", String(trueUsage));
+      });
+    } else {
+      setUsage(localCount);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // Save history and usage to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem("ai_vat_history", JSON.stringify(messages));
     localStorage.setItem("ai_vat_usage", String(usage));
@@ -102,7 +120,16 @@ export default function AIVATAssistant() {
     const updated = [...messages, newMsg];
     setMessages(updated);
     setInput("");
-    setUsage((u) => u + 1);
+
+    // Increment usage locally immediately
+    const newUsageCount = usage + 1;
+    setUsage(newUsageCount);
+
+    // Also increment server-side for authenticated users (anti-misuse)
+    if (userId) {
+      incrementServerUsage(userId, usage);
+    }
+
     setIsLoading(true);
 
     const context = getTransactionContext();
@@ -172,9 +199,9 @@ export default function AIVATAssistant() {
 
   const clearHistory = () => {
     setMessages([]);
-    setUsage(0);
+    // Note: clearing history does NOT reset the usage counter — server-side
+    // count is the authoritative limit enforcer.
     localStorage.removeItem("ai_vat_history");
-    localStorage.removeItem("ai_vat_usage");
   };
 
   const suggestions = [
@@ -224,7 +251,7 @@ export default function AIVATAssistant() {
 
         {/* Plan benefits inline */}
         <div className="text-sm text-gray-600 mb-2">
-          Free: 5 queries • Starter: 200 • Pro: 1000 • Business: 5000
+          Free: 5 queries · Starter: 200 · Pro: 1,000 · Business: 5,000
         </div>
 
         {/* Login nudge for guests */}
@@ -280,7 +307,7 @@ export default function AIVATAssistant() {
           ))}
         </div>
 
-        {/* Chat window — flex-1 scrollable area */}
+        {/* Chat window */}
         <div
           className="flex-1 overflow-y-auto rounded-xl border p-4 space-y-4 bg-card"
           style={{ minHeight: "200px" }}
@@ -346,7 +373,7 @@ export default function AIVATAssistant() {
           <div ref={chatEndRef} />
         </div>
 
-        {/* Input row — always visible below the chat window */}
+        {/* Input row */}
         <div className="flex gap-2 mt-4">
           <input
             value={input}

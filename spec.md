@@ -1,15 +1,27 @@
-# Specification
+# Glotaxa
 
-## Summary
-**Goal:** Integrate Supabase OTP-based authentication, plan fetching, invoice edge function, and plan upgrade into the Glotaxa frontend.
+## Current State
+AI VAT Assistant usage is tracked primarily in localStorage (`ai_vat_usage`, `ai_vat_history`). The UsageMeter fetches a count from the Supabase Edge Function `get-usage`, but the AI query counter is incremented only on the frontend. A user can clear localStorage to reset their free query count and bypass the 5-query free tier limit.
 
-**Planned changes:**
-- Add a Login screen with an email input and "Send OTP" button that POSTs to the Supabase OTP endpoint; on success, navigate to the OTP Verification screen
-- Add an OTP Verification screen showing the email (read-only), a 6-digit OTP input, and a "Verify OTP" button that POSTs to the Supabase token endpoint; on success, save `supabase_access_token` and `supabase_user_id` to localStorage and navigate to the Dashboard
-- On Dashboard load, fetch the authenticated user's plan from Supabase REST API and display it in the UI as `currentPlan` state (badge or label)
-- Wire the "Generate Invoice" button to POST to the Supabase Edge Function `create-invoice`; on HTTP 200 show success and navigate to Invoice Preview; on HTTP 403 show the limit message and navigate to the Pricing page
-- Wire each plan upgrade button on the Pricing page to PATCH the user's plan in Supabase REST; on success update `currentPlan` state and show a confirmation message
-- Add a session guard that redirects unauthenticated users to Login when accessing Dashboard, Invoice, or Pricing pages
-- Add a logout function that clears `supabase_access_token` and `supabase_user_id` from localStorage and redirects to Login
+## Requested Changes (Diff)
 
-**User-visible outcome:** Users can log in via email OTP, view their current plan on the Dashboard, generate invoices (with plan-limit enforcement), upgrade their plan from the Pricing page, and log out securely.
+### Add
+- `src/frontend/src/utils/aiUsageTracker.ts` — utility that reads and increments AI usage via the `ai_usage` Supabase table (`user_id`, `queries_used` columns) using `supabase.from()`. For unauthenticated users, falls back to localStorage only.
+- On page load in `AIVATAssistant.tsx`, fetch the server-side usage count for authenticated users and sync it with the displayed value (taking the max of server vs local to avoid downgrading).
+- On each successful AI query, call `incrementServerUsage()` to upsert the counter in Supabase.
+
+### Modify
+- `AIVATAssistant.tsx` — load initial usage from server on mount (for authenticated users); increment server-side after each query.
+- `UsageMeter.tsx` — no functional change needed; it already reads from the Edge Function. The real fix is upstream in the AIVATAssistant page.
+
+### Remove
+- Nothing removed. localStorage is kept as a fallback for unauthenticated/offline users.
+
+## Implementation Plan
+1. Create `aiUsageTracker.ts` with two functions:
+   - `fetchServerUsage(supabase, userId): Promise<number>` — reads `ai_usage` table for `user_id`
+   - `incrementServerUsage(supabase, userId): Promise<void>` — upserts `ai_usage` table incrementing `queries_used` by 1
+2. In `AIVATAssistant.tsx`:
+   - Import and call `fetchServerUsage` in `useEffect` after `accessToken`/`userId` are available; set usage to `Math.max(serverCount, localCount)`
+   - After each successful AI response, call `incrementServerUsage`
+3. Keep localStorage as fallback so guests and offline users still see their count
