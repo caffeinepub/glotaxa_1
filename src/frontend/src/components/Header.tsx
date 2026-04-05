@@ -5,9 +5,14 @@ import { useAuth } from "../contexts/AuthContext";
 interface HeaderProps {
   onNavigateDashboard?: () => void;
   onLogout?: () => void;
+  hideBranding?: boolean;
 }
 
-export function Header({ onNavigateDashboard, onLogout }: HeaderProps) {
+export function Header({
+  onNavigateDashboard,
+  onLogout,
+  hideBranding = false,
+}: HeaderProps) {
   const { isAuthenticated, logout } = useAuth();
 
   const handleLogout = () => {
@@ -29,32 +34,49 @@ export function Header({ onNavigateDashboard, onLogout }: HeaderProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
-              className="flex items-center justify-center w-10 h-10 rounded-lg"
-              style={{
-                background:
-                  "linear-gradient(135deg, oklch(0.42 0.14 255), oklch(0.48 0.16 195))",
-                boxShadow: "0 4px 12px oklch(0.42 0.14 255 / 0.3)",
-              }}
+              className={`flex items-center justify-center w-10 h-10 rounded-lg ${
+                hideBranding ? "bg-muted" : ""
+              }`}
+              style={
+                hideBranding
+                  ? {}
+                  : {
+                      background:
+                        "linear-gradient(135deg, oklch(0.42 0.14 255), oklch(0.48 0.16 195))",
+                      boxShadow: "0 4px 12px oklch(0.42 0.14 255 / 0.3)",
+                    }
+              }
             >
-              <Calculator className="w-5 h-5 text-white" />
+              <Calculator
+                className={`w-5 h-5 ${
+                  hideBranding ? "text-muted-foreground" : "text-white"
+                }`}
+              />
             </div>
-            <div className="flex flex-col">
-              <h1
-                className="text-2xl font-bold tracking-tight leading-none"
-                style={{
-                  background:
-                    "linear-gradient(135deg, oklch(0.38 0.13 255), oklch(0.48 0.16 195))",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}
-              >
-                Glotaxa
-              </h1>
-              <span className="text-xs text-muted-foreground tracking-wide mt-0.5">
-                AI-Powered Invoicing &amp; Tax Made Simple
+
+            {hideBranding ? (
+              <span className="text-lg font-semibold text-muted-foreground">
+                Invoicing Platform
               </span>
-            </div>
+            ) : (
+              <div className="flex flex-col">
+                <h1
+                  className="text-2xl font-bold tracking-tight leading-none"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, oklch(0.38 0.13 255), oklch(0.48 0.16 195))",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}
+                >
+                  Glotaxa
+                </h1>
+                <span className="text-xs text-muted-foreground tracking-wide mt-0.5">
+                  AI-Powered Invoicing &amp; Tax Made Simple
+                </span>
+              </div>
+            )}
           </div>
 
           {isAuthenticated && (

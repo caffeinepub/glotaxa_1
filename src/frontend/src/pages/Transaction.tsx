@@ -1,5 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowLeft, FileText, Info } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  FileText,
+  Info,
+  XCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import type { InvoicePrePopData, TabName } from "../App";
 import { CompliancePanel } from "../components/CompliancePanel";
@@ -9,6 +16,8 @@ import type { CountryCode } from "../data/vatRules";
 import { VAT_CATEGORIES, calculateVAT } from "../engine/vatEngine";
 import { calculateComplianceScore } from "../utils/complianceScoreCalculator";
 import { riskDetector } from "../utils/riskDetector";
+import { validateVatId } from "../utils/vatIdValidator";
+import type { VatIdValidationResult } from "../utils/vatIdValidator";
 import { explainVATDecision } from "../utils/vatLogicExplainer";
 
 const _SUPABASE_ANON_KEY =
@@ -38,6 +47,8 @@ export default function Transaction({
   const [netAmount, setNetAmount] = useState<number>(1000);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [vatId, setVatId] = useState("");
+  const [vatIdValidation, setVatIdValidation] =
+    useState<VatIdValidationResult | null>(null);
   const [reverseChargeNote, setReverseChargeNote] = useState(false);
   const [calculationResult, setCalculationResult] = useState<ReturnType<
     typeof calculateVAT
@@ -70,6 +81,14 @@ export default function Transaction({
     setHasCalculated(false);
   };
 
+  const handleVatIdBlur = () => {
+    if (vatId.trim()) {
+      setVatIdValidation(validateVatId(vatId));
+    } else {
+      setVatIdValidation(null);
+    }
+  };
+
   const handleCalculate = () => {
     try {
       const result = calculateVAT(
@@ -83,7 +102,8 @@ export default function Transaction({
       );
       setCalculationResult(result);
       setHasCalculated(true);
-      // Save transaction context for AI VAT Assistant
+
+      // Save transaction context for AI VAT Assistant (legacy key)
       try {
         const saved = localStorage.getItem("vat_transactions");
         const existing = saved ? JSON.parse(saved) : [];
@@ -94,6 +114,29 @@ export default function Transaction({
         };
         const updated = [...existing, entry].slice(-10);
         localStorage.setItem("vat_transactions", JSON.stringify(updated));
+      } catch {
+        /* ignore */
+      }
+
+      // Persist full transaction record for VAT summary exports
+      try {
+        const record = {
+          date: new Date().toISOString(),
+          country: buyerCountry,
+          category,
+          netAmount,
+          vatRate: result.vatRate,
+          vatAmount: result.vatAmount,
+          grossAmount: result.total,
+          isOSS: result.isOSS,
+          currency: "EUR",
+          buyerType,
+        };
+        const existing = JSON.parse(
+          localStorage.getItem("glotaxa_transactions") || "[]",
+        );
+        existing.push(record);
+        localStorage.setItem("glotaxa_transactions", JSON.stringify(existing));
       } catch {
         /* ignore */
       }
@@ -189,7 +232,7 @@ export default function Transaction({
     if (calculationResult.vatType === "Reverse Charge") {
       importantNotices.push({
         title: "Reverse Charge Applies",
-        body: "The invoice must include the statement: 'Reverse Charge — VAT to be accounted for by the customer.' The buyer is responsible for self-assessing VAT in their country under EU VAT Directive Article 196.",
+        body: "The invoice must include the statement: 'Reverse Charge \u2014 VAT to be accounted for by the customer.' The buyer is responsible for self-assessing VAT in their country under EU VAT Directive Article 196.",
         severity: "warning",
       });
     }
@@ -387,10 +430,61 @@ export default function Transaction({
                 id="buyerVatIdInput"
                 type="text"
                 value={vatId}
-                onChange={(e) => setVatId(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                onChange={(e) => {
+                  setVatId(e.target.value);
+                  // Clear validation on edit
+                  if (vatIdValidation) setVatIdValidation(null);
+                }}
+                onBlur={handleVatIdBlur}
+                className={`w-full px-3 py-2 bg-background border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+                  vatIdValidation && !vatIdValidation.valid
+                    ? "border-destructive"
+                    : vatIdValidation?.valid && vatId
+                      ? "border-green-500"
+                      : "border-border"
+                }`}
                 placeholder="e.g. DE123456789"
+                data-ocid="transaction.vat_id.input"
               />
+
+              {/* Validation badge */}
+              {vatIdValidation && vatId && (
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  {vatIdValidation.valid ? (
+                    <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Valid format
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs text-destructive font-medium">
+                      <XCircle className="w-3.5 h-3.5" />
+                      {vatIdValidation.message}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Format hint */}
+              {vatIdValidation?.format && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Format: {vatIdValidation.format}
+                </p>
+              )}
+
+              {/* VIES link if invalid and non-empty */}
+              {vatIdValidation && !vatIdValidation.valid && vatId && (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Tip: Verify on VIES:{" "}
+                  <a
+                    href="https://ec.europa.eu/taxation_customs/vies/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    ec.europa.eu/taxation_customs/vies/
+                  </a>
+                </p>
+              )}
             </div>
           )}
 

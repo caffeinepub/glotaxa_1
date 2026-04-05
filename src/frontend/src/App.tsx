@@ -52,7 +52,12 @@ function LegalPageRouter() {
 }
 
 function AppContent({ sessionSignal }: { sessionSignal: number }) {
-  const { isAuthenticated, logout, sessionChecked } = useAuth();
+  const { isAuthenticated, logout, sessionChecked, currentPlan } = useAuth();
+
+  const isPaidPlan =
+    currentPlan === "starter" ||
+    currentPlan === "pro" ||
+    currentPlan === "business";
 
   const [screen, setScreen] = useState<AppScreen>("login");
   const [activeTab, setActiveTab] = useState<TabName>("signin");
@@ -157,6 +162,7 @@ function AppContent({ sessionSignal }: { sessionSignal: number }) {
         <Header
           onNavigateDashboard={() => setScreen("dashboard")}
           onLogout={handleLogout}
+          hideBranding={isPaidPlan}
         />
         <main className="flex-1">
           <Dashboard
@@ -178,6 +184,7 @@ function AppContent({ sessionSignal }: { sessionSignal: number }) {
             isAuthenticated ? () => setScreen("dashboard") : undefined
           }
           onLogout={handleLogout}
+          hideBranding={isPaidPlan}
         />
         <main className="flex-1">
           <InvoicePreview
@@ -252,6 +259,7 @@ function AppContent({ sessionSignal }: { sessionSignal: number }) {
           isAuthenticated ? () => setScreen("dashboard") : undefined
         }
         onLogout={handleLogout}
+        hideBranding={isPaidPlan}
       />
 
       {/* Tab Navigation */}

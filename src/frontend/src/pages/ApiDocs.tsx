@@ -1,12 +1,53 @@
 import { Button } from "@/components/ui/button";
-import { AlertCircle, ArrowLeft, Code, Globe, Key } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Code,
+  Copy,
+  Globe,
+  Key,
+  RefreshCw,
+} from "lucide-react";
+import { useState } from "react";
 import type { TabName } from "../App";
+import { useAuth } from "../contexts/AuthContext";
 
 interface ApiDocsProps {
   setActiveTab: (tab: TabName) => void;
 }
 
 export default function ApiDocs({ setActiveTab }: ApiDocsProps) {
+  const { currentPlan } = useAuth();
+  const planKey = (currentPlan ?? "free").toLowerCase();
+  const isStarter =
+    planKey === "starter" || planKey === "pro" || planKey === "business";
+
+  const [apiKey, setApiKey] = useState<string | null>(() =>
+    localStorage.getItem("glotaxa_api_key"),
+  );
+  const [copied, setCopied] = useState(false);
+
+  const handleGenerateKey = () => {
+    const newKey = crypto.randomUUID();
+    localStorage.setItem("glotaxa_api_key", newKey);
+    setApiKey(newKey);
+  };
+
+  const handleCopy = () => {
+    if (!apiKey) return;
+    navigator.clipboard.writeText(apiKey).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleRegenerate = () => {
+    const newKey = crypto.randomUUID();
+    localStorage.setItem("glotaxa_api_key", newKey);
+    setApiKey(newKey);
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Back Button */}
@@ -31,6 +72,106 @@ export default function ApiDocs({ setActiveTab }: ApiDocsProps) {
           checking.
         </p>
       </div>
+
+      {/* ── API KEY SECTION ── */}
+      <section className="mb-8">
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Key className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">
+              Your API Key
+            </h2>
+          </div>
+
+          {!isStarter ? (
+            <div className="bg-muted/60 rounded-xl p-5 flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                API access requires <strong>Starter plan or above</strong>.
+                Upgrade to generate your API key and start using the VAT
+                Calculation API programmatically.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => setActiveTab("pricing")}
+                className="self-start"
+                data-ocid="apidocs.upgrade.button"
+              >
+                Upgrade →
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {apiKey ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Include this key as{" "}
+                    <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">
+                      x-api-key: YOUR_KEY
+                    </code>{" "}
+                    in your API requests.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code
+                      className="flex-1 font-mono text-sm bg-muted px-4 py-2.5 rounded-lg text-foreground break-all select-all"
+                      data-ocid="apidocs.api_key.panel"
+                    >
+                      {apiKey}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCopy}
+                      className="shrink-0 flex items-center gap-1.5"
+                      data-ocid="apidocs.api_key.copy_button"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-green-500" />{" "}
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" /> Copy
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleRegenerate}
+                      className="shrink-0 flex items-center gap-1.5 text-muted-foreground"
+                      data-ocid="apidocs.api_key.regenerate_button"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Regenerate
+                    </Button>
+                  </div>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    ⚠️ Regenerating your key will invalidate the existing one
+                    immediately.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    You don't have an API key yet. Generate one to start using
+                    the VAT Calculation API.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={handleGenerateKey}
+                    className="flex items-center gap-1.5"
+                    data-ocid="apidocs.api_key.generate_button"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    Generate API Key
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Endpoint */}
       <section className="mb-8">
@@ -387,27 +528,6 @@ export default function ApiDocs({ setActiveTab }: ApiDocsProps) {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* API Access */}
-      <section className="mb-8">
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Key className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">
-              API Access
-            </h2>
-          </div>
-          <p className="text-sm text-muted-foreground mb-3">
-            Include your API key in the request header:
-          </p>
-          <pre className="bg-muted rounded-lg p-4 text-xs font-mono text-foreground">
-            {"Authorization: Bearer YOUR_API_KEY"}
-          </pre>
-          <p className="text-xs text-muted-foreground mt-3">
-            Contact us to obtain an API key for production use.
-          </p>
         </div>
       </section>
     </div>

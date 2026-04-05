@@ -4,12 +4,17 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   AlertTriangle,
   ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Download,
   FileCode,
+  FileSpreadsheet,
   FileText,
   Loader2,
   Plus,
   Trash2,
+  XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { InvoicePrePopData, TabName } from "../App";
@@ -19,7 +24,9 @@ import { VAT_RULES } from "../data/vatRules";
 import type { CountryCode } from "../data/vatRules";
 import type { Invoice16931, InvoiceLineItem } from "../types/invoice";
 import { downloadInvoicePDF } from "../utils/invoicePDF";
-import { downloadInvoiceXML } from "../utils/invoiceXML";
+import { downloadInvoiceXMLWithOSS } from "../utils/invoiceXML";
+import { validateVatId } from "../utils/vatIdValidator";
+import type { VatIdValidationResult } from "../utils/vatIdValidator";
 
 interface InvoiceProps {
   setActiveTab: (tab: TabName) => void;
@@ -38,6 +45,15 @@ interface LocalLineItem {
   netAmount: number;
   vatCategory: string;
   vatRate: number;
+}
+
+interface BusinessProfile {
+  id: string;
+  name: string;
+  address: string;
+  vatNumber: string;
+  email: string;
+  country: string;
 }
 
 const MAX_LINE_ITEMS = 3;
@@ -233,7 +249,18 @@ export default function Invoice({
     .toISOString()
     .split("T")[0];
 
-  const { accessToken, isAuthenticated, userId } = useAuth();
+  const { accessToken, isAuthenticated, userId, currentPlan } = useAuth();
+  const planKey = (currentPlan ?? "free").toLowerCase();
+  const canBulkImport = planKey === "pro" || planKey === "business";
+
+  // Business profiles from localStorage
+  const savedBusinesses: BusinessProfile[] = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("glotaxa_businesses") || "[]");
+    } catch {
+      return [];
+    }
+  }, []);
 
   const [invoiceNumber, setInvoiceNumber] = useState(generateInvoiceNumber());
   const [invoiceDate, setInvoiceDate] = useState(today);
@@ -251,6 +278,8 @@ export default function Invoice({
   const [buyerName, setBuyerName] = useState("");
   const [buyerAddress, setBuyerAddress] = useState("");
   const [buyerTaxId, setBuyerTaxId] = useState("");
+  const [buyerTaxIdValidation, setBuyerTaxIdValidation] =
+    useState<VatIdValidationResult | null>(null);
   const [buyerContractNumber, setBuyerContractNumber] = useState("");
 
   // Line items
@@ -276,6 +305,11 @@ export default function Invoice({
   );
   const [notes, setNotes] = useState("");
 
+  // Bulk CSV import state
+  const [showCSVImport, setShowCSVImport] = useState(false);
+  const [csvPreview, setCsvPreview] = useState<LocalLineItem[]>([]);
+  const [csvError, setCsvError] = useState<string | null>(null);
+
   // Inline Ask VAT Question state
   const [invoiceQuestion, setInvoiceQuestion] = useState("");
   const [invoiceAnswer, setInvoiceAnswer] = useState("");
@@ -287,6 +321,10 @@ export default function Invoice({
   const [generateSuccess, setGenerateSuccess] = useState(false);
 
   const atLineItemLimit = lineItems.length >= MAX_LINE_ITEMS;
+
+  // Track OSS from prePopData
+  const isOSS = prePopData?.isOSS ?? false;
+  const buyerCountry = prePopData?.country ?? "";
 
   // Pre-populate from transaction data
   useEffect(() => {
@@ -346,6 +384,13 @@ export default function Invoice({
         "VAT reverse charge applies. The recipient is liable for the VAT amount under Article 196 of the EU VAT Directive.",
       );
     }
+
+    // Add OSS note if applicable
+    if (prePopData.isOSS) {
+      setNotes(
+        `OSS Scheme \u2014 VAT remitted to ${prePopData.country} tax authority under the EU One-Stop-Shop scheme.`,
+      );
+    }
   }, [prePopData]);
 
   const updateLineItem = (
@@ -387,6 +432,85 @@ export default function Invoice({
     setLineItems((prev) => prev.filter((item) => item.id !== id));
   };
 
+  // Load business profile
+  const handleLoadBusiness = (bizId: string) => {
+    const biz = savedBusinesses.find((b) => b.id === bizId);
+    if (!biz) return;
+    setSellerName(biz.name);
+    setSellerAddress(biz.address);
+    setSellerVatNumber(biz.vatNumber);
+    setSellerEmail(biz.email);
+    setSellerCountry((biz.country as CountryCode) || "DE");
+  };
+
+  // CSV parsing for bulk import
+  const handleCSVFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCsvError(null);
+    setCsvPreview([]);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const lines = text.split(/\r?\n/).filter((l) => l.trim());
+        // Skip header row if present
+        const dataLines = lines[0].toLowerCase().includes("description")
+          ? lines.slice(1)
+          : lines;
+
+        if (dataLines.length === 0) {
+          setCsvError("CSV file appears to be empty.");
+          return;
+        }
+
+        const parsed: LocalLineItem[] = dataLines
+          .slice(0, MAX_LINE_ITEMS)
+          .map((line, i) => {
+            const cols = line
+              .split(",")
+              .map((c) => c.trim().replace(/^"|"$/g, ""));
+            const description = cols[0] || "Item";
+            const quantity = Number.parseFloat(cols[1] || "1") || 1;
+            const unitPrice = Number.parseFloat(cols[2] || "0") || 0;
+            const vatRate = Number.parseFloat(cols[3] || "0") || 0;
+            return {
+              id: `csv-${i}-${Date.now()}`,
+              description,
+              itemType: "Services",
+              netAmount: unitPrice * quantity,
+              vatCategory: "Others",
+              vatRate,
+            };
+          });
+
+        setCsvPreview(parsed);
+      } catch {
+        setCsvError("Failed to parse CSV. Please check the format.");
+      }
+    };
+    reader.readAsText(file);
+    // Reset file input
+    e.target.value = "";
+  };
+
+  const handleLoadCSVIntoInvoice = () => {
+    if (csvPreview.length === 0) return;
+    setLineItems(csvPreview);
+    setCsvPreview([]);
+    setShowCSVImport(false);
+  };
+
+  // Buyer VAT ID validation on blur
+  const handleBuyerTaxIdBlur = () => {
+    if (buyerTaxId.trim()) {
+      setBuyerTaxIdValidation(validateVatId(buyerTaxId));
+    } else {
+      setBuyerTaxIdValidation(null);
+    }
+  };
+
   // Totals
   const totalNet = useMemo(
     () => lineItems.reduce((sum, item) => sum + item.netAmount, 0),
@@ -411,7 +535,7 @@ export default function Invoice({
   );
   const totalGross = totalNet + totalVat;
 
-  // Build Invoice16931 for export
+  // Build Invoice16931 for export (with OSS note embedded)
   const buildInvoice16931 = (): Invoice16931 => {
     const cleanLineItems: InvoiceLineItem[] = lineItems.map((item) => ({
       itemType: item.itemType,
@@ -425,6 +549,12 @@ export default function Invoice({
     const taxDetails: { [vatRate: string]: number } = {};
     for (const [rate, v] of Object.entries(vatBreakdown)) {
       taxDetails[rate] = v.vat;
+    }
+
+    // Inject OSS note into invoice notes
+    let invoiceNotes = notes;
+    if (isOSS && buyerCountry && !invoiceNotes.includes("OSS")) {
+      invoiceNotes = `OSS Scheme \u2014 VAT remitted to ${buyerCountry} tax authority under the EU One-Stop-Shop scheme.${invoiceNotes ? ` ${invoiceNotes}` : ""}`;
     }
 
     return {
@@ -454,17 +584,15 @@ export default function Invoice({
         earlyPaymentDiscount,
         latePenaltyTerms,
       },
-    };
+      notes: invoiceNotes,
+      isOSS,
+      ossCountry: buyerCountry,
+    } as Invoice16931 & { notes: string; isOSS: boolean; ossCountry: string };
   };
 
   const handleDownloadPDF = () => downloadInvoicePDF(buildInvoice16931());
-  const handleDownloadXML = () => downloadInvoiceXML(buildInvoice16931());
-
-  // Generate Invoice — steps:
-  // 0. Pre-check usage via get_invoice_usage RPC (friendly client-side guard)
-  // 1. Limit check via create_invoice_secure RPC (server-side authoritative check)
-  // 2. Insert invoice into invoices table
-  // 3. For each line item: call create_invoice_item_secure first, then insert into invoice_items
+  const handleDownloadXML = () =>
+    downloadInvoiceXMLWithOSS(buildInvoice16931() as any, isOSS, buyerCountry);
 
   const handleInvoiceAskAI = async () => {
     if (!invoiceQuestion.trim()) return;
@@ -553,7 +681,6 @@ export default function Invoice({
 
       // Step 3: For each line item — security check first, then direct insert
       for (const item of lineItems) {
-        // 3a: Call create_invoice_item_secure to authorise the item insert
         const { error: itemSecureError } = await supabase.rpc(
           "create_invoice_item_secure",
           { p_invoice_id: invoiceId },
@@ -568,7 +695,6 @@ export default function Invoice({
           return;
         }
 
-        // 3b: Insert the item directly into invoice_items
         const { error: itemInsertError } = await supabase
           .from("invoice_items")
           .insert({
@@ -593,7 +719,6 @@ export default function Invoice({
         }
       }
 
-      // Success
       setGenerateSuccess(true);
       if (onInvoiceGenerated) {
         onInvoiceGenerated(invoiceNumber, totalGross, currency);
@@ -637,6 +762,11 @@ export default function Invoice({
                   Pre-populated from transaction
                 </span>
               )}
+              {isOSS && (
+                <span className="ml-2 inline-flex items-center gap-1 text-amber-600 font-medium">
+                  OSS Scheme
+                </span>
+              )}
             </p>
           </div>
           <div className="flex gap-2">
@@ -661,6 +791,30 @@ export default function Invoice({
         </div>
 
         <div className="space-y-6">
+          {/* Business Profile Pre-fill */}
+          {savedBusinesses.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
+              <span className="text-sm font-medium text-foreground whitespace-nowrap">
+                Load Business:
+              </span>
+              <select
+                onChange={(e) =>
+                  e.target.value && handleLoadBusiness(e.target.value)
+                }
+                className="flex-1 px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                defaultValue=""
+                data-ocid="invoice.business_profile.select"
+              >
+                <option value="">Select a saved business profile…</option>
+                {savedBusinesses.map((biz) => (
+                  <option key={biz.id} value={biz.id}>
+                    {biz.name} {biz.vatNumber ? `(${biz.vatNumber})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Invoice Header */}
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="text-base font-semibold text-foreground mb-4">
@@ -820,9 +974,60 @@ export default function Invoice({
                   </p>
                   <Input
                     value={buyerTaxId}
-                    onChange={(e) => setBuyerTaxId(e.target.value)}
+                    onChange={(e) => {
+                      setBuyerTaxId(e.target.value);
+                      if (buyerTaxIdValidation) setBuyerTaxIdValidation(null);
+                    }}
+                    onBlur={handleBuyerTaxIdBlur}
                     placeholder="FR987654321"
+                    className={`${
+                      buyerTaxIdValidation && !buyerTaxIdValidation.valid
+                        ? "border-destructive"
+                        : buyerTaxIdValidation?.valid && buyerTaxId
+                          ? "border-green-500"
+                          : ""
+                    }`}
+                    data-ocid="invoice.buyer_tax_id.input"
                   />
+
+                  {/* Validation result */}
+                  {buyerTaxIdValidation && buyerTaxId && (
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      {buyerTaxIdValidation.valid ? (
+                        <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Valid format
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs text-destructive font-medium">
+                          <XCircle className="w-3.5 h-3.5" />
+                          {buyerTaxIdValidation.message}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {buyerTaxIdValidation?.format && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Format: {buyerTaxIdValidation.format}
+                    </p>
+                  )}
+
+                  {buyerTaxIdValidation &&
+                    !buyerTaxIdValidation.valid &&
+                    buyerTaxId && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Verify on VIES:{" "}
+                        <a
+                          href="https://ec.europa.eu/taxation_customs/vies/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline"
+                        >
+                          ec.europa.eu/taxation_customs/vies/
+                        </a>
+                      </p>
+                    )}
                 </div>
                 <div>
                   <p className="block text-xs font-medium text-muted-foreground mb-1">
@@ -836,6 +1041,146 @@ export default function Invoice({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Bulk CSV Import (Pro/Business only) */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowCSVImport((v) => !v)}
+              className="w-full flex items-center justify-between px-6 py-4 hover:bg-muted/40 transition-colors"
+              data-ocid="invoice.csv_import.toggle"
+            >
+              <div className="flex items-center gap-3">
+                <FileSpreadsheet className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">
+                  Import Line Items from CSV
+                </span>
+                {!canBulkImport && (
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium">
+                    Pro/Business
+                  </span>
+                )}
+              </div>
+              {showCSVImport ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+
+            {showCSVImport && (
+              <div className="px-6 pb-6 pt-2 border-t border-border space-y-3">
+                {!canBulkImport ? (
+                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 rounded-lg p-4">
+                    <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                      Pro or Business plan required
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                      Upgrade to import line items from CSV files.
+                    </p>
+                    <Button
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => setActiveTab("pricing")}
+                      data-ocid="invoice.csv_import.upgrade_button"
+                    >
+                      Upgrade Plan
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
+                      <strong>Expected CSV format:</strong>
+                      <br />
+                      <code className="font-mono">
+                        description,quantity,unitPrice,vatRate
+                      </code>
+                      <br />
+                      <span className="text-muted-foreground">
+                        Example: Web Design Services,1,1500,20
+                      </span>
+                    </div>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="pointer-events-none"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                          Choose CSV File
+                        </span>
+                      </Button>
+                      <input
+                        type="file"
+                        accept=".csv"
+                        className="sr-only"
+                        onChange={handleCSVFile}
+                        data-ocid="invoice.csv_import.upload_button"
+                      />
+                    </label>
+
+                    {csvError && (
+                      <p className="text-xs text-destructive">{csvError}</p>
+                    )}
+
+                    {csvPreview.length > 0 && (
+                      <>
+                        <div className="text-xs font-medium text-foreground">
+                          Preview ({csvPreview.length} items):
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border">
+                                <th className="text-left py-1.5 text-muted-foreground">
+                                  Description
+                                </th>
+                                <th className="text-right py-1.5 text-muted-foreground">
+                                  Net Amount
+                                </th>
+                                <th className="text-right py-1.5 text-muted-foreground">
+                                  VAT Rate
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {csvPreview.map((item, i) => (
+                                <tr
+                                  key={item.id}
+                                  className="border-b border-border/50"
+                                  data-ocid={`invoice.csv_import.item.${i + 1}`}
+                                >
+                                  <td className="py-1.5 text-foreground">
+                                    {item.description}
+                                  </td>
+                                  <td className="py-1.5 text-right text-muted-foreground">
+                                    €{item.netAmount.toFixed(2)}
+                                  </td>
+                                  <td className="py-1.5 text-right text-muted-foreground">
+                                    {item.vatRate}%
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={handleLoadCSVIntoInvoice}
+                          data-ocid="invoice.csv_import.load_button"
+                        >
+                          Load into Invoice
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Line Items */}
@@ -897,10 +1242,11 @@ export default function Invoice({
                   </tr>
                 </thead>
                 <tbody>
-                  {lineItems.map((item) => (
+                  {lineItems.map((item, idx) => (
                     <tr
                       key={item.id}
                       className="border-b border-border/50 last:border-0"
+                      data-ocid={`invoice.line_items.item.${idx + 1}`}
                     >
                       <td className="py-3 pr-3">
                         <Input
@@ -982,6 +1328,7 @@ export default function Invoice({
                           onClick={() => removeLineItem(item.id)}
                           disabled={lineItems.length === 1}
                           className="p-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30"
+                          data-ocid={`invoice.line_items.delete_button.${idx + 1}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1115,7 +1462,21 @@ export default function Invoice({
             </div>
           )}
 
-          {/* Inline Ask a VAT Question — strategic placement before invoice generation */}
+          {/* OSS Notice */}
+          {isOSS && (
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-300/50 rounded-xl p-4">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                OSS Scheme Active
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                This invoice is subject to the EU One-Stop-Shop scheme. VAT will
+                be remitted to {buyerCountry || "the buyer's"} tax authority.
+                This note is included in both PDF and XML exports.
+              </p>
+            </div>
+          )}
+
+          {/* Inline Ask a VAT Question */}
           <div className="bg-card border border-border rounded-xl p-5 space-y-3 mb-6">
             <div>
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
