@@ -7,11 +7,13 @@ import {
   Copy,
   Globe,
   Key,
+  Loader2,
   RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
 import type { TabName } from "../App";
 import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../contexts/AuthContext";
 
 interface ApiDocsProps {
   setActiveTab: (tab: TabName) => void;
@@ -23,16 +25,52 @@ export default function ApiDocs({ setActiveTab }: ApiDocsProps) {
   const isStarter =
     planKey === "starter" || planKey === "pro" || planKey === "business";
 
-  const [apiKey, setApiKey] = useState<string | null>(() =>
-    localStorage.getItem("glotaxa_api_key"),
-  );
+  const [apiKey, setApiKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleGenerateKey = () => {
-    const newKey = crypto.randomUUID();
-    localStorage.setItem("glotaxa_api_key", newKey);
-    setApiKey(newKey);
+  const fetchApiKeyFromSupabase = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        setError("You must be signed in to generate an API key.");
+        return;
+      }
+
+      const res = await fetch(
+        "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/generate-api-key",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(
+          data?.error ?? "Failed to generate API key. Please try again.",
+        );
+        return;
+      }
+
+      setApiKey(data.api_key);
+    } catch (_err) {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleGenerateKey = () => fetchApiKeyFromSupabase();
+  const handleRegenerate = () => fetchApiKeyFromSupabase();
 
   const handleCopy = () => {
     if (!apiKey) return;
@@ -40,12 +78,6 @@ export default function ApiDocs({ setActiveTab }: ApiDocsProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  };
-
-  const handleRegenerate = () => {
-    const newKey = crypto.randomUUID();
-    localStorage.setItem("glotaxa_api_key", newKey);
-    setApiKey(newKey);
   };
 
   return (
@@ -101,6 +133,13 @@ export default function ApiDocs({ setActiveTab }: ApiDocsProps) {
             </div>
           ) : (
             <div className="space-y-4">
+              {error && (
+                <div className="bg-destructive/10 text-destructive text-sm px-4 py-3 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {error}
+                </div>
+              )}
+
               {apiKey ? (
                 <>
                   <p className="text-sm text-muted-foreground">
@@ -139,10 +178,15 @@ export default function ApiDocs({ setActiveTab }: ApiDocsProps) {
                       size="sm"
                       variant="outline"
                       onClick={handleRegenerate}
+                      disabled={loading}
                       className="shrink-0 flex items-center gap-1.5 text-muted-foreground"
                       data-ocid="apidocs.api_key.regenerate_button"
                     >
-                      <RefreshCw className="w-3.5 h-3.5" />
+                      {loading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      )}
                       Regenerate
                     </Button>
                   </div>
@@ -160,11 +204,16 @@ export default function ApiDocs({ setActiveTab }: ApiDocsProps) {
                   <Button
                     size="sm"
                     onClick={handleGenerateKey}
+                    disabled={loading}
                     className="flex items-center gap-1.5"
                     data-ocid="apidocs.api_key.generate_button"
                   >
-                    <Key className="w-3.5 h-3.5" />
-                    Generate API Key
+                    {loading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Key className="w-3.5 h-3.5" />
+                    )}
+                    {loading ? "Generating..." : "Generate API Key"}
                   </Button>
                 </>
               )}
@@ -270,7 +319,11 @@ export default function ApiDocs({ setActiveTab }: ApiDocsProps) {
                     </td>
                     <td className="py-2 pr-4 text-xs">
                       <span
-                        className={`px-1.5 py-0.5 rounded text-xs font-medium ${row.req === "Yes" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                        className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                          row.req === "Yes"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground"
+                        }`}
                       >
                         {row.req}
                       </span>
