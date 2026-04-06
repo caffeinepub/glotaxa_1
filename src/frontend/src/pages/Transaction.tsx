@@ -81,11 +81,42 @@ export default function Transaction({
     setHasCalculated(false);
   };
 
-  const handleVatIdBlur = () => {
-    if (vatId.trim()) {
-      setVatIdValidation(validateVatId(vatId));
-    } else {
+  const handleVatIdBlur = async () => {
+    if (!vatId.trim()) {
       setVatIdValidation(null);
+      return;
+    }
+    const localResult = validateVatId(vatId.trim());
+    if (!localResult.valid) {
+      setVatIdValidation(localResult);
+      return;
+    }
+    try {
+      const res = await fetch(
+        "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/validate-vat-id",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vat_number: vatId.trim() }),
+        },
+      );
+      const data = await res.json();
+      if (!data.valid) {
+        setVatIdValidation({
+          ...localResult,
+          valid: false,
+          message: "VAT ID could not be verified. Please check and try again.",
+        });
+      } else {
+        setVatIdValidation({
+          ...localResult,
+          valid: true,
+          message: `Verified: ${localResult.message}`,
+        });
+      }
+    } catch {
+      // Network error — fall back to local regex result silently
+      setVatIdValidation(localResult);
     }
   };
 

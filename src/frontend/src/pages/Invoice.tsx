@@ -503,11 +503,42 @@ export default function Invoice({
   };
 
   // Buyer VAT ID validation on blur
-  const handleBuyerTaxIdBlur = () => {
-    if (buyerTaxId.trim()) {
-      setBuyerTaxIdValidation(validateVatId(buyerTaxId));
-    } else {
+  const handleBuyerTaxIdBlur = async () => {
+    if (!buyerTaxId.trim()) {
       setBuyerTaxIdValidation(null);
+      return;
+    }
+    const localResult = validateVatId(buyerTaxId.trim());
+    if (!localResult.valid) {
+      setBuyerTaxIdValidation(localResult);
+      return;
+    }
+    try {
+      const res = await fetch(
+        "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/validate-vat-id",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vat_number: buyerTaxId.trim() }),
+        },
+      );
+      const data = await res.json();
+      if (!data.valid) {
+        setBuyerTaxIdValidation({
+          ...localResult,
+          valid: false,
+          message: "VAT ID could not be verified. Please check and try again.",
+        });
+      } else {
+        setBuyerTaxIdValidation({
+          ...localResult,
+          valid: true,
+          message: `Verified: ${localResult.message}`,
+        });
+      }
+    } catch {
+      // Network error — fall back to local regex result silently
+      setBuyerTaxIdValidation(localResult);
     }
   };
 
@@ -1433,6 +1464,14 @@ export default function Invoice({
                   </span>
                 </div>
               ))}
+              {isOSS && (
+                <div className="flex justify-between text-sm items-center">
+                  <span className="text-muted-foreground">VAT Treatment</span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 text-xs font-semibold">
+                    🌍 OSS VAT Applied
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between text-base font-bold border-t border-border pt-2 mt-2">
                 <span>Total (incl. VAT)</span>
                 <span>
