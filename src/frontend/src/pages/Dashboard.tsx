@@ -89,6 +89,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
   const [showBusinessProfiles, setShowBusinessProfiles] = useState(false);
   const [showTeamAccess, setShowTeamAccess] = useState(false);
   const [showOSSReport, setShowOSSReport] = useState(false);
+  const [ossExporting, setOssExporting] = useState(false);
 
   // VAT Summary state
   const now = new Date();
@@ -127,6 +128,10 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
   });
   const [newEmail, setNewEmail] = useState("");
   const [teamError, setTeamError] = useState<string | null>(null);
+  const [isExportingBackend, setIsExportingBackend] = useState(false);
+  const [backendExportError, setBackendExportError] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!userId || !accessToken) return;
@@ -217,11 +222,104 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
     exportMonthlyPDF(selectedSummary);
   };
 
+  const handleExportVatSummaryBackend = async () => {
+    setIsExportingBackend(true);
+    setBackendExportError(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        setBackendExportError("Not signed in. Please log in to export.");
+        return;
+      }
+      const monthStr = `${summaryYear}-${String(summaryMonth + 1).padStart(2, "0")}`;
+      const res = await fetch(
+        "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/export-vat-summary",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ month: monthStr }),
+        },
+      );
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error: ${res.status}`);
+      }
+      const data = await res.json();
+      // If the function returns a download URL, open it; otherwise show success
+      if (data.url) {
+        window.open(data.url, "_blank");
+      } else if (data.csv) {
+        const blob = new Blob([data.csv], { type: "text/csv" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `vat-summary-${monthStr}.csv`;
+        link.click();
+      } else {
+        console.log("VAT summary export response:", data);
+        alert("Export complete. Check your email or downloads.");
+      }
+    } catch (err) {
+      setBackendExportError(
+        err instanceof Error ? err.message : "Export failed",
+      );
+    } finally {
+      setIsExportingBackend(false);
+    }
+  };
+
   // --- Quarterly OSS ---
   const ossReport = getQuarterlyOSSSummary(ossYear, ossQuarter);
 
   const handleExportOSSCSV = () => {
     exportQuarterlyOSSCSV(ossReport);
+  };
+
+  const handleExportOSSBackend = async () => {
+    setOssExporting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        alert("Not signed in. Please log in to export.");
+        return;
+      }
+      const quarterLabel = `Q${ossQuarter}`;
+      const res = await fetch(
+        "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/export-oss-quarterly",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ year: ossYear, quarter: quarterLabel }),
+        },
+      );
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error: ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.csv) {
+        const blob = new Blob([data.csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `oss-report-${quarterLabel}-${ossYear}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        alert("Export complete. No CSV data returned.");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "OSS export failed.");
+    } finally {
+      setOssExporting(false);
+    }
   };
 
   // --- Business Profiles ---
@@ -588,7 +686,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                   </div>
                 )}
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-wrap gap-2 pt-2">
                   <Button
                     size="sm"
                     variant="outline"
@@ -609,7 +707,27 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                     <FileText className="w-3.5 h-3.5" />
                     Export PDF
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={handleExportVatSummaryBackend}
+                    disabled={isExportingBackend}
+                    className="flex items-center gap-1.5"
+                    data-ocid="dashboard.vat_summary.backend_export_button"
+                  >
+                    {isExportingBackend ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                    )}
+                    {isExportingBackend ? "Exporting..." : "Export via Backend"}
+                  </Button>
                 </div>
+                {backendExportError && (
+                  <p className="text-xs text-destructive mt-1">
+                    {backendExportError}
+                  </p>
+                )}
               </>
             ) : (
               <p
@@ -767,16 +885,33 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                       <span>·</span>
                       <span>Total VAT: €{ossReport.totalVat.toFixed(2)}</span>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleExportOSSCSV}
-                      className="flex items-center gap-1.5"
-                      data-ocid="dashboard.oss_report.export_button"
-                    >
-                      <FileSpreadsheet className="w-3.5 h-3.5" />
-                      Export CSV
-                    </Button>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleExportOSSCSV}
+                        className="flex items-center gap-1.5"
+                        data-ocid="dashboard.oss_report.export_button"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        Export CSV
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={handleExportOSSBackend}
+                        disabled={ossExporting}
+                        className="flex items-center gap-1.5"
+                        data-ocid="dashboard.oss_report.backend_export_button"
+                      >
+                        {ossExporting ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                        )}
+                        {ossExporting ? "Exporting..." : "Export via Backend"}
+                      </Button>
+                    </div>
                   </>
                 ) : (
                   <p
