@@ -1,5 +1,5 @@
 import { Download, Sparkles, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import UpgradeModal from "../components/UpgradeModal";
 import UsageMeter from "../components/UsageMeter";
 import { useAuth } from "../contexts/AuthContext";
@@ -20,8 +20,9 @@ const PLAN_LIMITS: Record<string, number> = {
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "thinking";
   content: string;
+  isTyping?: boolean;
 }
 
 interface StoredTransaction {
@@ -29,6 +30,9 @@ interface StoredTransaction {
   amount: number;
   vat_rate: number;
 }
+
+// Typing animation speed in ms per character
+const TYPING_SPEED = 15;
 
 export default function AIVATAssistant() {
   const { isAuthenticated, accessToken, currentPlan, userId } = useAuth();
@@ -41,6 +45,7 @@ export default function AIVATAssistant() {
   const [usage, setUsage] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load chat history and local usage count from localStorage
   useEffect(() => {
@@ -48,20 +53,19 @@ export default function AIVATAssistant() {
     const savedUsage = localStorage.getItem("ai_vat_usage");
     if (savedHistory) {
       try {
-        setMessages(JSON.parse(savedHistory));
+        // Filter out any stale thinking/typing messages from previous sessions
+        const parsed: Message[] = JSON.parse(savedHistory);
+        setMessages(parsed.filter((m) => m.role !== "thinking" && !m.isTyping));
       } catch {
         // ignore
       }
     }
     const localCount = savedUsage ? Number.parseInt(savedUsage, 10) : 0;
 
-    // For authenticated users: fetch server-side usage and take the higher value.
-    // This prevents localStorage clearing from resetting the free tier limit.
     if (userId) {
       fetchServerUsage(userId).then((serverCount) => {
         const trueUsage = Math.max(localCount, serverCount);
         setUsage(trueUsage);
-        // Sync localStorage with the authoritative server count
         localStorage.setItem("ai_vat_usage", String(trueUsage));
       });
     } else {
@@ -71,8 +75,12 @@ export default function AIVATAssistant() {
   }, [userId]);
 
   // Save history and usage to localStorage whenever they change
+  // Only persist non-thinking/non-typing messages
   useEffect(() => {
-    localStorage.setItem("ai_vat_history", JSON.stringify(messages));
+    const persistable = messages.filter(
+      (m) => m.role !== "thinking" && !m.isTyping,
+    );
+    localStorage.setItem("ai_vat_history", JSON.stringify(persistable));
     localStorage.setItem("ai_vat_usage", String(usage));
   }, [messages, usage]);
 
@@ -83,6 +91,7 @@ export default function AIVATAssistant() {
     }
   }, [usage, limit]);
 
+  // Auto-scroll to bottom on every message change or during typing
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional scroll trigger
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -90,7 +99,6 @@ export default function AIVATAssistant() {
 
   const isLimitReached = usage >= limit;
 
-  // Read recent transactions from localStorage (saved by Transaction page)
   const getTransactionContext = (): string => {
     try {
       const saved = localStorage.getItem("vat_transactions");
@@ -109,6 +117,45 @@ export default function AIVATAssistant() {
     }
   };
 
+  // Animate a full text string into the message at `msgId`
+  const typeMessage = useCallback(
+    (msgId: string, fullText: string, baseMessages: Message[]) => {
+      let i = 0;
+
+      // Add the message with empty content and isTyping flag
+      setMessages([
+        ...baseMessages,
+        { id: msgId, role: "assistant", content: "", isTyping: true },
+      ]);
+
+      const tick = () => {
+        i++;
+        const partial = fullText.slice(0, i);
+        const done = i >= fullText.length;
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId ? { ...m, content: partial, isTyping: !done } : m,
+          ),
+        );
+
+        if (!done) {
+          typingRef.current = setTimeout(tick, TYPING_SPEED);
+        }
+      };
+
+      typingRef.current = setTimeout(tick, TYPING_SPEED);
+    },
+    [],
+  );
+
+  // Clean up typing timer on unmount
+  useEffect(() => {
+    return () => {
+      if (typingRef.current) clearTimeout(typingRef.current);
+    };
+  }, []);
+
   const sendQuestion = async (question: string) => {
     if (!question.trim() || isLoading || isLimitReached) return;
 
@@ -117,15 +164,20 @@ export default function AIVATAssistant() {
       role: "user",
       content: question.trim(),
     };
-    const updated = [...messages, newMsg];
-    setMessages(updated);
+
+    // Add user message + thinking loader
+    const thinkingId = `thinking-${Date.now()}`;
+    const withThinking: Message[] = [
+      ...messages,
+      newMsg,
+      { id: thinkingId, role: "thinking", content: "" },
+    ];
+    setMessages(withThinking);
     setInput("");
 
-    // Increment usage locally immediately
     const newUsageCount = usage + 1;
     setUsage(newUsageCount);
 
-    // Also increment server-side for authenticated users (anti-misuse)
     if (userId) {
       incrementServerUsage(userId, usage);
     }
@@ -133,6 +185,8 @@ export default function AIVATAssistant() {
     setIsLoading(true);
 
     const context = getTransactionContext();
+    // Base messages = without the thinking loader (used for typing animation)
+    const baseMessages: Message[] = [...messages, newMsg];
 
     try {
       const res = await fetch(SUPABASE_AI_URL, {
@@ -149,7 +203,14 @@ export default function AIVATAssistant() {
 
       const data = await res.json();
 
-      if (res.status === 403 && data.error === "LIMIT_REACHED") {
+      // Remove thinking loader
+      setMessages(baseMessages);
+
+      // Check for backend LIMIT_REACHED error
+      if (data.error === "LIMIT_REACHED" || res.status === 403) {
+        const upgradeMsg =
+          "🚀 You've reached your free limit.\nUpgrade to continue using AI VAT Assistant.";
+        typeMessage(`ai-upgrade-${Date.now()}`, upgradeMsg, baseMessages);
         setShowUpgradeModal(true);
         setIsLoading(false);
         return;
@@ -159,19 +220,15 @@ export default function AIVATAssistant() {
         data.answer ??
         data.error ??
         "Sorry, I couldn't get a response. Please try again.";
-      setMessages([
-        ...updated,
-        { id: `ai-${Date.now()}`, role: "assistant", content: answer },
-      ]);
+
+      typeMessage(`ai-${Date.now()}`, answer, baseMessages);
     } catch {
-      setMessages([
-        ...updated,
-        {
-          id: `ai-err-${Date.now()}`,
-          role: "assistant",
-          content: "AI unavailable. Try again.",
-        },
-      ]);
+      setMessages(baseMessages);
+      typeMessage(
+        `ai-err-${Date.now()}`,
+        "AI unavailable. Try again.",
+        baseMessages,
+      );
     } finally {
       setIsLoading(false);
     }
@@ -188,6 +245,7 @@ export default function AIVATAssistant() {
 
   const exportChat = () => {
     const text = messages
+      .filter((m) => m.role !== "thinking")
       .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
       .join("\n\n");
     const blob = new Blob([text], { type: "text/plain" });
@@ -199,8 +257,6 @@ export default function AIVATAssistant() {
 
   const clearHistory = () => {
     setMessages([]);
-    // Note: clearing history does NOT reset the usage counter — server-side
-    // count is the authoritative limit enforcer.
     localStorage.removeItem("ai_vat_history");
   };
 
@@ -210,6 +266,8 @@ export default function AIVATAssistant() {
     "Explain reverse charge",
     "VAT for EU SaaS sales?",
   ];
+
+  const visibleMessages = messages.filter((m) => m.role !== "thinking");
 
   return (
     <>
@@ -250,7 +308,7 @@ export default function AIVATAssistant() {
         <UsageMeter usage={usage} limit={limit} plan={userPlan} />
 
         {/* Plan benefits inline */}
-        <div className="text-sm text-gray-600 mb-2">
+        <div className="text-sm text-muted-foreground mb-2">
           Free: 5 queries · Starter: 200 · Pro: 1,000 · Business: 5,000
         </div>
 
@@ -309,51 +367,58 @@ export default function AIVATAssistant() {
 
         {/* Chat window */}
         <div
-          className="flex-1 overflow-y-auto rounded-xl border p-4 space-y-4 bg-card"
-          style={{ minHeight: "200px" }}
+          className="flex-1 overflow-y-auto rounded-xl border p-4 space-y-3 bg-card"
+          style={{ minHeight: "200px", maxHeight: "420px" }}
         >
-          {messages.length === 0 && (
+          {visibleMessages.length === 0 && (
             <p className="text-muted-foreground text-sm">
               Ask any VAT-related question to get started, or click a suggestion
               above.
             </p>
           )}
-          {messages.map((msg) => (
+
+          {visibleMessages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex ${
-                msg.role === "user" ? "justify-end" : "justify-start"
-              }`}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                className={`max-w-[80%] text-sm leading-relaxed whitespace-pre-wrap ${
                   msg.role === "user"
-                    ? "rounded-br-sm text-white"
-                    : "rounded-bl-sm text-foreground border"
+                    ? "rounded-2xl rounded-br-sm text-foreground"
+                    : "rounded-2xl rounded-bl-sm text-foreground"
                 }`}
-                style={
-                  msg.role === "user"
-                    ? { background: "oklch(0.46 0.15 290)" }
-                    : {
-                        background: "oklch(0.97 0.005 240)",
-                        borderColor: "oklch(0.90 0.01 240)",
-                      }
-                }
+                style={{
+                  margin: "5px 0",
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  background: msg.role === "user" ? "#DCF8C6" : "#F1F0F0",
+                  color: "#1a1a1a",
+                }}
               >
                 {msg.content}
+                {msg.isTyping && (
+                  <span className="inline-block w-0.5 h-3.5 bg-current ml-0.5 animate-pulse align-middle" />
+                )}
               </div>
             </div>
           ))}
+
+          {/* "AI is thinking..." loader */}
           {isLoading && (
             <div className="flex justify-start">
               <div
-                className="px-4 py-3 rounded-2xl rounded-bl-sm border text-sm text-muted-foreground"
+                className="text-sm italic"
                 style={{
-                  background: "oklch(0.97 0.005 240)",
-                  borderColor: "oklch(0.90 0.01 240)",
+                  margin: "5px 0",
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  background: "#F1F0F0",
+                  color: "#555",
                 }}
               >
-                <span className="inline-flex gap-1">
+                🤖 AI is thinking…
+                <span className="inline-flex gap-1 ml-2">
                   <span
                     className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
                     style={{ animationDelay: "0ms" }}
@@ -402,7 +467,7 @@ export default function AIVATAssistant() {
           <button
             type="button"
             onClick={exportChat}
-            disabled={messages.length === 0}
+            disabled={visibleMessages.length === 0}
             className="flex items-center gap-1.5 text-sm font-medium transition-colors disabled:opacity-40"
             style={{ color: "oklch(0.46 0.15 290)" }}
           >
@@ -412,7 +477,7 @@ export default function AIVATAssistant() {
           <button
             type="button"
             onClick={clearHistory}
-            disabled={messages.length === 0}
+            disabled={visibleMessages.length === 0}
             className="flex items-center gap-1.5 text-sm font-medium transition-colors disabled:opacity-40"
             style={{ color: "oklch(0.45 0.18 25)" }}
           >

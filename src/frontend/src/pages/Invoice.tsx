@@ -16,7 +16,19 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+// Augment window with invoiceData for AI context
+declare global {
+  interface Window {
+    invoiceData?: {
+      country: string;
+      amount: number;
+      vat_rate: number;
+      customer_type: string;
+    };
+  }
+}
 import type { InvoicePrePopData, TabName } from "../App";
 import UpgradeModal from "../components/UpgradeModal";
 import { supabase, useAuth } from "../contexts/AuthContext";
@@ -126,25 +138,33 @@ const WIDGET_PLAN_LIMITS: Record<string, number> = {
 };
 
 interface ChatMessage {
+  id: string;
   role: "user" | "assistant";
   content: string;
+  isTyping?: boolean;
 }
+
+const WIDGET_TYPING_SPEED = 15;
 
 function AskVATWidget() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: "assistant", content: "Hi! Ask me anything about EU/UK VAT." },
+    {
+      id: "welcome",
+      role: "assistant",
+      content: "Hi! Ask me anything about EU/UK VAT.",
+    },
   ]);
   const [isAsking, setIsAsking] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { accessToken, currentPlan } = useAuth();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const userPlan = currentPlan || "free";
   const aiLimit = WIDGET_PLAN_LIMITS[userPlan] ?? 5;
 
-  // Signed-in users: plan-based limit via localStorage "ai_vat_usage"
-  // Guest users: localStorage "guestCount" capped at 5
   const signedIn = !!accessToken;
   const aiUsage = Number.parseInt(
     localStorage.getItem(signedIn ? "ai_vat_usage" : "guestCount") ?? "0",
@@ -155,40 +175,90 @@ function AskVATWidget() {
     ? aiUsage >= aiLimit
     : aiUsage >= guestLimit;
 
+  // Auto-scroll to bottom when messages change
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional scroll trigger
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Clean up typing timer on unmount
+  useEffect(() => {
+    return () => {
+      if (typingRef.current) clearTimeout(typingRef.current);
+    };
+  }, []);
+
+  // Animate text into a message bubble character by character
+  const typeMessage = useCallback(
+    (msgId: string, fullText: string, baseMessages: ChatMessage[]) => {
+      let i = 0;
+      setMessages([
+        ...baseMessages,
+        { id: msgId, role: "assistant", content: "", isTyping: true },
+      ]);
+
+      const tick = () => {
+        i++;
+        const partial = fullText.slice(0, i);
+        const done = i >= fullText.length;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId ? { ...m, content: partial, isTyping: !done } : m,
+          ),
+        );
+        if (!done) {
+          typingRef.current = setTimeout(tick, WIDGET_TYPING_SPEED);
+        }
+      };
+      typingRef.current = setTimeout(tick, WIDGET_TYPING_SPEED);
+    },
+    [],
+  );
+
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isAsking) return;
 
-    // Guest limit check — show message in chat instead of calling API
+    const userMsgId = `user-${Date.now()}`;
+    const userMsg: ChatMessage = {
+      id: userMsgId,
+      role: "user",
+      content: trimmed,
+    };
+
+    // Guest limit check
     if (!signedIn && aiUsage >= guestLimit) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", content: trimmed },
-        {
-          role: "assistant",
-          content:
-            "You've used your 5 free queries. Sign in and upgrade to continue using AI VAT Assistant.",
-        },
-      ]);
+      const upgradeText =
+        "You've used your 5 free queries. Sign in and upgrade to continue using AI VAT Assistant.";
+      const base: ChatMessage[] = [...messages, userMsg];
+      typeMessage(`ai-${Date.now()}`, upgradeText, base);
       return;
     }
 
     // Signed-in plan limit check
     if (signedIn && aiUsage >= aiLimit) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", content: trimmed },
-        {
-          role: "assistant",
-          content: "Upgrade to continue using AI VAT Assistant.",
-        },
-      ]);
+      const upgradeText =
+        "🚀 You've reached your free limit.\nUpgrade to continue using AI VAT Assistant.";
+      const base: ChatMessage[] = [...messages, userMsg];
+      typeMessage(`ai-${Date.now()}`, upgradeText, base);
       return;
     }
 
-    setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
+    const baseMessages: ChatMessage[] = [...messages, userMsg];
+    setMessages([
+      ...baseMessages,
+      {
+        id: "thinking",
+        role: "assistant",
+        content: "🤖 AI is thinking…",
+        isTyping: false,
+      },
+    ]);
     setInput("");
     setIsAsking(true);
+
+    // Read invoice context from window.invoiceData
+    const invoiceContext = window.invoiceData ?? undefined;
 
     try {
       const res = await fetch(
@@ -199,45 +269,41 @@ function AskVATWidget() {
             "Content-Type": "application/json",
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
-          body: JSON.stringify({ question: trimmed }),
+          body: JSON.stringify({
+            question: trimmed,
+            context: invoiceContext,
+          }),
         },
       );
       const data = await res.json();
 
-      if (data.error === "LIMIT_REACHED") {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: "🚀 Upgrade to continue using AI VAT Assistant.",
-          },
-        ]);
+      // Remove thinking bubble
+      setMessages(baseMessages);
+
+      if (data.error === "LIMIT_REACHED" || res.status === 403) {
+        const upgradeText =
+          "🚀 You've reached your free limit.\nUpgrade to continue using AI VAT Assistant.";
+        typeMessage(`ai-upgrade-${Date.now()}`, upgradeText, baseMessages);
         setShowUpgradeModal(true);
         return;
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: data.answer ?? "Sorry, could not get a response.",
-        },
-      ]);
+      const answer = data.answer ?? "Sorry, could not get a response.";
+      typeMessage(`ai-${Date.now()}`, answer, baseMessages);
 
-      // Increment usage counter after successful response
+      // Increment usage counter
       const newUsage = aiUsage + 1;
       localStorage.setItem(
         signedIn ? "ai_vat_usage" : "guestCount",
         String(newUsage),
       );
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "Something went wrong. Please try again.",
-        },
-      ]);
+      setMessages(baseMessages);
+      typeMessage(
+        `ai-err-${Date.now()}`,
+        "Something went wrong. Please try again.",
+        baseMessages,
+      );
     } finally {
       setIsAsking(false);
     }
@@ -250,10 +316,11 @@ function AskVATWidget() {
     }
   };
 
+  // Invoice-aware quick prompts
   const quickPrompts = [
-    { label: "Germany VAT", question: "VAT in Germany" },
-    { label: "OSS VAT", question: "Explain OSS VAT" },
-    { label: "UK VAT", question: "UK VAT rules" },
+    { label: "Check VAT", question: "What VAT applies to this invoice?" },
+    { label: "OSS Check", question: "Is OSS applicable for this transaction?" },
+    { label: "Explain VAT", question: "Explain VAT for this invoice" },
   ];
 
   // Floating button (chat closed)
@@ -320,38 +387,34 @@ function AskVATWidget() {
 
         {/* Messages */}
         <div
-          className="flex-1 overflow-y-auto p-3 space-y-2"
+          className="flex-1 overflow-y-auto p-3 space-y-1"
           style={{ background: "var(--background)" }}
         >
-          {messages.map((msg, i) => (
+          {messages.map((msg) => (
             <div
-              key={`${msg.role}-${i}-${msg.content.slice(0, 12)}`}
+              key={msg.id}
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <span
-                className={`inline-block px-3 py-2 rounded-2xl text-sm max-w-[85%] leading-relaxed ${
-                  msg.role === "user"
-                    ? "text-white rounded-br-sm"
-                    : "text-foreground rounded-bl-sm"
-                }`}
+                className="inline-block text-sm max-w-[85%] leading-relaxed whitespace-pre-wrap"
                 style={{
-                  background: msg.role === "user" ? "#4CAF50" : "var(--muted)",
+                  margin: "5px 0",
+                  padding: "8px",
+                  borderRadius: "8px",
+                  background: msg.role === "user" ? "#DCF8C6" : "#F1F0F0",
+                  color: "#1a1a1a",
+                  fontStyle: msg.id === "thinking" ? "italic" : "normal",
                 }}
               >
                 {msg.content}
+                {msg.isTyping && (
+                  <span className="inline-block w-0.5 h-3 bg-current ml-0.5 animate-pulse align-middle" />
+                )}
               </span>
             </div>
           ))}
-          {isAsking && (
-            <div className="flex justify-start">
-              <span
-                className="inline-block px-3 py-2 rounded-2xl rounded-bl-sm text-sm text-muted-foreground"
-                style={{ background: "var(--muted)" }}
-              >
-                <span className="animate-pulse">…</span>
-              </span>
-            </div>
-          )}
+          {/* "AI is thinking" shown via messages array — scroll anchor */}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Quick prompts */}
@@ -734,6 +797,18 @@ export default function Invoice({
     [vatBreakdown],
   );
   const totalGross = totalNet + totalVat;
+
+  // Sync current invoice data to window.invoiceData for AI context
+  useEffect(() => {
+    const customerType = buyerTaxId ? "B2B" : "B2C";
+    const vatRate = lineItems.length > 0 ? lineItems[0].vatRate : 0;
+    window.invoiceData = {
+      country: sellerCountry,
+      amount: totalGross,
+      vat_rate: vatRate,
+      customer_type: customerType,
+    };
+  }, [sellerCountry, totalGross, lineItems, buyerTaxId]);
 
   // Build Invoice16931 for export (with OSS note embedded)
   const buildInvoice16931 = (): Invoice16931 => {
