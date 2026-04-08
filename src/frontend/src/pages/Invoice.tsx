@@ -125,24 +125,71 @@ const WIDGET_PLAN_LIMITS: Record<string, number> = {
   business: 5000,
 };
 
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 function AskVATWidget() {
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { role: "assistant", content: "Hi! Ask me anything about EU/UK VAT." },
+  ]);
   const [isAsking, setIsAsking] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { accessToken, currentPlan } = useAuth();
+
   const userPlan = currentPlan || "free";
   const aiLimit = WIDGET_PLAN_LIMITS[userPlan] ?? 5;
+
+  // Signed-in users: plan-based limit via localStorage "ai_vat_usage"
+  // Guest users: localStorage "guestCount" capped at 5
+  const signedIn = !!accessToken;
   const aiUsage = Number.parseInt(
-    localStorage.getItem("ai_vat_usage") ?? "0",
+    localStorage.getItem(signedIn ? "ai_vat_usage" : "guestCount") ?? "0",
     10,
   );
-  const isAILimitReached = aiUsage >= aiLimit;
+  const guestLimit = 5;
+  const isAILimitReached = signedIn
+    ? aiUsage >= aiLimit
+    : aiUsage >= guestLimit;
 
-  const askAI = async () => {
-    if (!question.trim()) return;
+  const sendMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isAsking) return;
+
+    // Guest limit check — show message in chat instead of calling API
+    if (!signedIn && aiUsage >= guestLimit) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: trimmed },
+        {
+          role: "assistant",
+          content:
+            "You've used your 5 free queries. Sign in and upgrade to continue using AI VAT Assistant.",
+        },
+      ]);
+      return;
+    }
+
+    // Signed-in plan limit check
+    if (signedIn && aiUsage >= aiLimit) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: trimmed },
+        {
+          role: "assistant",
+          content: "Upgrade to continue using AI VAT Assistant.",
+        },
+      ]);
+      return;
+    }
+
+    setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
+    setInput("");
     setIsAsking(true);
+
     try {
       const res = await fetch(
         "https://cvelhiuefcykduwgnjjs.supabase.co/functions/v1/ai-vat",
@@ -152,90 +199,212 @@ function AskVATWidget() {
             "Content-Type": "application/json",
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
-          body: JSON.stringify({ question, simple: true }),
+          body: JSON.stringify({ question: trimmed }),
         },
       );
       const data = await res.json();
 
-      if (res.status === 403 && data.error === "LIMIT_REACHED") {
+      if (data.error === "LIMIT_REACHED") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "🚀 Upgrade to continue using AI VAT Assistant.",
+          },
+        ]);
         setShowUpgradeModal(true);
         return;
       }
 
-      setAnswer(data.answer ?? "Sorry, could not get a response.");
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.answer ?? "Sorry, could not get a response.",
+        },
+      ]);
+
+      // Increment usage counter after successful response
+      const newUsage = aiUsage + 1;
+      localStorage.setItem(
+        signedIn ? "ai_vat_usage" : "guestCount",
+        String(newUsage),
+      );
     } catch {
-      setAnswer("Something went wrong. Please try again.");
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Something went wrong. Please try again.",
+        },
+      ]);
     } finally {
       setIsAsking(false);
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input);
+    }
+  };
+
+  const quickPrompts = [
+    { label: "Germany VAT", question: "VAT in Germany" },
+    { label: "OSS VAT", question: "Explain OSS VAT" },
+    { label: "UK VAT", question: "UK VAT rules" },
+  ];
+
+  // Floating button (chat closed)
   if (!isOpen) {
     return (
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center text-2xl transition-all hover:scale-110 z-50"
-        style={{ background: "oklch(0.42 0.14 255)" }}
+        className="fixed z-50 flex items-center justify-center text-2xl text-white shadow-xl transition-transform hover:scale-110 cursor-pointer"
+        style={{
+          bottom: "20px",
+          right: "20px",
+          background: "#4CAF50",
+          padding: "12px",
+          borderRadius: "50%",
+          width: "52px",
+          height: "52px",
+          border: "none",
+        }}
         title="Ask a VAT question"
+        data-ocid="invoice.chat_widget.open_button"
       >
-        ?
+        💬
       </button>
     );
   }
 
+  // Chat box (open)
   return (
-    <div
-      className="fixed bottom-6 right-6 w-80 bg-white shadow-2xl rounded-2xl border z-50"
-      style={{ borderColor: "oklch(0.85 0.02 255)" }}
-    >
+    <>
       <div
-        className="flex items-center justify-between px-4 py-3 rounded-t-2xl"
-        style={{ background: "oklch(0.42 0.14 255)" }}
+        className="fixed z-50 flex flex-col bg-card border border-border shadow-2xl"
+        style={{
+          bottom: "80px",
+          right: "20px",
+          width: "300px",
+          height: "400px",
+          borderRadius: "16px",
+          overflow: "hidden",
+        }}
+        data-ocid="invoice.chat_widget.box"
       >
-        <h3 className="font-semibold text-white text-sm">Ask VAT Question</h3>
-        <button
-          type="button"
-          onClick={() => setIsOpen(false)}
-          className="text-white/80 hover:text-white text-lg leading-none"
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-3 shrink-0"
+          style={{ background: "#4CAF50" }}
         >
-          &times;
-        </button>
-      </div>
-      <div className="p-4">
-        <input
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && askAI()}
-          placeholder="Quick VAT question..."
-          disabled={isAILimitReached}
-          className="w-full border rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none disabled:bg-gray-100"
-          style={{ borderColor: "oklch(0.85 0.02 255)" }}
-        />
-        <button
-          type="button"
-          onClick={askAI}
-          disabled={isAsking || isAILimitReached}
-          className="w-full py-2 rounded-lg text-white text-sm font-medium transition-opacity disabled:opacity-60 disabled:bg-gray-400"
-          style={{ background: "oklch(0.42 0.14 255)" }}
-        >
-          {isAsking ? "Asking..." : "Ask"}
-        </button>
-        {isAILimitReached && (
-          <p className="text-red-600 text-xs mt-2">
-            AI limit reached. Upgrade your plan.
-          </p>
-        )}
-        {answer && !isAILimitReached && (
-          <div className="mt-3 text-sm text-gray-700 bg-gray-50 rounded-lg p-3 leading-relaxed">
-            {answer}
+          <div className="flex items-center gap-2">
+            <span className="text-base">💬</span>
+            <h3 className="font-semibold text-white text-sm">
+              Ask VAT Question
+            </h3>
           </div>
-        )}
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="text-white/80 hover:text-white text-xl leading-none font-bold"
+            aria-label="Close chat"
+            data-ocid="invoice.chat_widget.close_button"
+          >
+            &times;
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div
+          className="flex-1 overflow-y-auto p-3 space-y-2"
+          style={{ background: "var(--background)" }}
+        >
+          {messages.map((msg, i) => (
+            <div
+              key={`${msg.role}-${i}-${msg.content.slice(0, 12)}`}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <span
+                className={`inline-block px-3 py-2 rounded-2xl text-sm max-w-[85%] leading-relaxed ${
+                  msg.role === "user"
+                    ? "text-white rounded-br-sm"
+                    : "text-foreground rounded-bl-sm"
+                }`}
+                style={{
+                  background: msg.role === "user" ? "#4CAF50" : "var(--muted)",
+                }}
+              >
+                {msg.content}
+              </span>
+            </div>
+          ))}
+          {isAsking && (
+            <div className="flex justify-start">
+              <span
+                className="inline-block px-3 py-2 rounded-2xl rounded-bl-sm text-sm text-muted-foreground"
+                style={{ background: "var(--muted)" }}
+              >
+                <span className="animate-pulse">…</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Quick prompts */}
+        <div
+          className="flex gap-1.5 px-3 py-2 shrink-0 overflow-x-auto"
+          style={{ background: "var(--muted)" }}
+        >
+          {quickPrompts.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => sendMessage(p.question)}
+              disabled={isAsking || isAILimitReached}
+              className="shrink-0 text-xs px-2.5 py-1 rounded-full border border-border bg-card text-foreground hover:bg-accent transition-colors disabled:opacity-50 cursor-pointer"
+              data-ocid={`invoice.chat_widget.quick_prompt.${p.label.toLowerCase().replace(/\s+/g, "_")}`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Input row */}
+        <div
+          className="flex items-center gap-2 px-3 py-2 shrink-0 border-t border-border"
+          style={{ background: "var(--background)" }}
+        >
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask VAT question..."
+            disabled={isAILimitReached || isAsking}
+            className="flex-1 text-sm border border-border rounded-full px-3 py-1.5 bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:bg-muted min-w-0"
+            data-ocid="invoice.chat_widget.input"
+          />
+          <button
+            type="button"
+            onClick={() => sendMessage(input)}
+            disabled={isAILimitReached || isAsking || !input.trim()}
+            className="shrink-0 w-8 h-8 rounded-full text-white text-sm flex items-center justify-center disabled:opacity-50 transition-opacity"
+            style={{ background: "#4CAF50" }}
+            aria-label="Send message"
+            data-ocid="invoice.chat_widget.send_button"
+          >
+            ➤
+          </button>
+        </div>
       </div>
+
       {showUpgradeModal && (
         <UpgradeModal onClose={() => setShowUpgradeModal(false)} />
       )}
-    </div>
+    </>
   );
 }
 
