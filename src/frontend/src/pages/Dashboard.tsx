@@ -91,6 +91,13 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
   const [showOSSReport, setShowOSSReport] = useState(false);
   const [ossExporting, setOssExporting] = useState(false);
 
+  // Accountant export state
+  const [showAccountantExport, setShowAccountantExport] = useState(false);
+  const [isExportingAccountant, setIsExportingAccountant] = useState(false);
+  const [accountantExportError, setAccountantExportError] = useState<
+    string | null
+  >(null);
+
   // VAT Summary state
   const now = new Date();
   const [summaryMonth, setSummaryMonth] = useState(now.getMonth());
@@ -319,6 +326,47 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
       alert(err instanceof Error ? err.message : "OSS export failed.");
     } finally {
       setOssExporting(false);
+    }
+  };
+
+  // --- Accountant Export ---
+  const handleExportAccountant = async () => {
+    setIsExportingAccountant(true);
+    setAccountantExportError(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        setAccountantExportError("Not signed in. Please log in to export.");
+        return;
+      }
+      const res = await fetch("/export-accountant", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error: ${res.status}`);
+      }
+      const data = await res.json();
+      if (!data.csv) {
+        throw new Error("No CSV data returned from server.");
+      }
+      const blob = new Blob([data.csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "accountant-report.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setAccountantExportError(
+        err instanceof Error ? err.message : "Export failed. Please try again.",
+      );
+    } finally {
+      setIsExportingAccountant(false);
     }
   };
 
@@ -922,6 +970,70 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                   </p>
                 )}
               </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── SECTION E: Export for Accountant ── */}
+      <div className="bg-card border border-border rounded-2xl mb-4 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowAccountantExport((v) => !v)}
+          className="w-full flex items-center justify-between px-6 py-4 hover:bg-muted/40 transition-colors"
+          data-ocid="dashboard.accountant_export.toggle"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-9 h-9 rounded-full bg-chart-4/10">
+              <FileSpreadsheet className="w-4 h-4 text-chart-4" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-foreground">
+                Export for Accountant
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Download a full CSV report to share with your accountant
+              </p>
+            </div>
+          </div>
+          {showAccountantExport ? (
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          )}
+        </button>
+
+        {showAccountantExport && (
+          <div className="px-6 pb-6 pt-4 border-t border-border space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Generate a comprehensive CSV export of all your VAT transactions
+              and invoice data, formatted for accountant review and tax filing.
+            </p>
+            <Button
+              size="sm"
+              variant="default"
+              onClick={handleExportAccountant}
+              disabled={isExportingAccountant}
+              className="flex items-center gap-1.5"
+              data-ocid="dashboard.accountant_export.download_button"
+            >
+              {isExportingAccountant ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+              )}
+              {isExportingAccountant
+                ? "Preparing report..."
+                : "Download Accountant Report (CSV)"}
+            </Button>
+            {accountantExportError && (
+              <div
+                className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-xs text-destructive"
+                data-ocid="dashboard.accountant_export.error_state"
+              >
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{accountantExportError}</span>
+              </div>
             )}
           </div>
         )}

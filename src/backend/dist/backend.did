@@ -1,0 +1,12 @@
+service : {
+  addApiKey: (apiKey: text) -> (bool);
+  addOwner: (newOwner: principal) -> (bool);
+  checkApiKey: (apiKey: text) -> (bool);
+  listVatRates: () -> (vec record {
+                             nat;
+                             float64;
+                           });
+  payVat: (amount: float64, vatKey: nat) -> (float64);
+  removeApiKey: (apiKey: text) -> (bool);
+  upsertVat: (key: nat, rate: float64) -> (bool);
+}
